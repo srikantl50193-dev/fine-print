@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     external_dir: Path = PROJECT_ROOT / "data" / "external"
     chroma_dir: Path = PROJECT_ROOT / "chroma_db"
     questions_path: Path = PROJECT_ROOT / "eval" / "questions.jsonl"
+    out_of_scope_path: Path = PROJECT_ROOT / "eval" / "out_of_scope.jsonl"
     privacyqa_path: Path = PROJECT_ROOT / "eval" / "privacyqa_sample.jsonl"
     privacyqa_policies_path: Path = PROJECT_ROOT / "eval" / "privacyqa_policies.json"
     docs_dir: Path = PROJECT_ROOT / "docs"
@@ -46,7 +47,12 @@ class Settings(BaseSettings):
 
     # Retrieval
     top_k: int = Field(default=5, gt=0)
-    min_similarity: float = Field(default=0.5, ge=-1, le=1)
+    # Set from `make eval`: every answerable question scores above 0.69, and questions on
+    # unrelated topics stay below 0.55.
+    min_similarity: float = Field(default=0.6, ge=-1, le=1)
+
+    # Evaluation
+    eval_k_values: tuple[int, ...] = (1, 3, 5, 10)
 
     # LLM
     ollama_url: str = "http://localhost:11434"
@@ -56,6 +62,9 @@ class Settings(BaseSettings):
     ollama_max_attempts: int = Field(default=3, gt=0)
     # Ollama silently drops prompt text beyond this many tokens.
     ollama_num_ctx: int = Field(default=4096, gt=0)
+    # Small models occasionally repeat themselves until they time out, so replies are capped.
+    # Normal answers on this corpus stay under 400 tokens.
+    ollama_num_predict: int = Field(default=512, gt=0)
 
     # Services
     api_url: str = "http://localhost:8000"

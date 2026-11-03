@@ -156,6 +156,16 @@ def list_companies(strategy: Strategy) -> list[str]:
     return sorted({str(metadata["company"]) for metadata in metadatas})
 
 
+def collection_stats(strategy: Strategy) -> tuple[int, float]:
+    """Return a collection's chunk count and mean chunk length in characters.
+
+    Raises:
+        IndexNotBuiltError: If the strategy's collection does not exist.
+    """
+    documents = _get_collection(strategy).get(include=["documents"])["documents"] or []
+    return len(documents), sum(map(len, documents)) / len(documents) if documents else 0.0
+
+
 def get_all_embeddings(strategy: Strategy) -> np.ndarray:
     """Return every stored vector, so the benchmark does not have to re-embed.
 

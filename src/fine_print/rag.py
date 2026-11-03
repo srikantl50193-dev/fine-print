@@ -94,7 +94,11 @@ def _post_chat(prompt: str) -> str:
                 {"role": "user", "content": prompt},
             ],
             # Temperature 0 keeps answers repeatable and close to the context.
-            "options": {"temperature": 0, "num_ctx": settings.ollama_num_ctx},
+            "options": {
+                "temperature": 0,
+                "num_ctx": settings.ollama_num_ctx,
+                "num_predict": settings.ollama_num_predict,
+            },
         },
         timeout=httpx.Timeout(
             settings.ollama_read_timeout, connect=settings.ollama_connect_timeout
@@ -109,7 +113,10 @@ def _post_chat(prompt: str) -> str:
         raise _RetryableOllamaError(f"HTTP {response.status_code}: {response.text[:200]}")
     if not response.is_success:
         raise OllamaError(f"Ollama returned HTTP {response.status_code}: {response.text[:200]}")
-    return response.json()["message"]["content"].strip()
+    body = response.json()
+    if body.get("done_reason") == "length":
+        log.warning("reply_cut_off_at_token_limit", limit=settings.ollama_num_predict)
+    return body["message"]["content"].strip()
 
 
 def call_ollama(prompt: str) -> str:

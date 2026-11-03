@@ -6,6 +6,7 @@ import pytest
 from typer.testing import CliRunner
 
 from fine_print import embed, rag, store
+from fine_print import evaluate as ev
 from fine_print.cli import app
 from fine_print.config import get_settings
 from fine_print.models import NOT_FOUND_MESSAGE, Answer, RetrievedChunk
@@ -234,9 +235,99 @@ def test_ask_failures_exit_cleanly(monkeypatch: pytest.MonkeyPatch, error: Excep
     assert isinstance(result.exception, SystemExit)
 
 
+@pytest.fixture
+def fake_evaluation(monkeypatch: pytest.MonkeyPatch) -> None:
+    def result(strategy: str, questions: object) -> ev.StrategyResult:
+        return ev.StrategyResult(
+            strategy="section" if strategy == "section" else "fixed",
+            num_chunks=7,
+            mean_chunk_chars=300.0,
+            recall_at_k=dict.fromkeys(get_settings().eval_k_values, 0.5),
+            mrr=0.5,
+            misses=[f"Missed {strategy}?"],
+        )
+
+    monkeypatch.setattr(ev, "evaluate_strategy", result)
+    monkeypatch.setattr(
+        ev,
+        "evaluate_threshold",
+        lambda *args: ev.ThresholdResult(
+            threshold=0.6,
+            answerable_kept=0.9,
+            unanswerable_refused=0.4,
+            wrongly_kept=["Kept?"],
+            wrongly_refused=["Refused?"],
+        ),
+    )
+
+
+@pytest.mark.usefixtures("fake_evaluation")
+def test_eval_prints_the_scores_and_the_mistakes() -> None:
+    result = runner.invoke(app, ["eval"])
+
+    assert result.exit_code == 0, result.stderr
+    assert "| section | 7 | 300 |" in result.stdout
+    assert "Missed by 'fixed': Missed fixed?" in result.stdout
+    assert "keeps 90%" in result.stdout
+    assert "refuses 40%" in result.stdout
+    assert "Passed to the model, but unanswerable: Kept?" in result.stdout
+    assert "Refused, but answerable: Refused?" in result.stdout
+    assert "Model answers" not in result.stdout
+
+
+@pytest.mark.usefixtures("fake_evaluation")
+def test_eval_answers_reports_the_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        ev,
+        "evaluate_answers",
+        lambda *args: ev.AnswerResult(
+            answered=0.8,
+            cited_any=0.7,
+            cited_relevant=0.6,
+            unanswerable_refused=0.5,
+            wrongly_refused=["Declined?"],
+            wrongly_answered=["Invented?"],
+        ),
+    )
+
+    result = runner.invoke(app, ["eval", "--answers"])
+
+    assert result.exit_code == 0, result.stderr
+    assert "answered: 80%" in result.stdout
+    assert "with a valid citation: 70%" in result.stdout
+    assert "with the expected text: 60%" in result.stdout
+    assert "Model refused, but answerable: Declined?" in result.stdout
+    assert "Model answered, but unanswerable: Invented?" in result.stdout
+
+
+def test_eval_without_an_index_fails_cleanly(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FINE_PRINT_CHROMA_DIR", str(tmp_path))
+    monkeypatch.setattr(embed, "embed_query", lambda question: np.array([1.0, 0.0]))
+    monkeypatch.setattr(rag, "embed_query", lambda question: np.array([1.0, 0.0]))
+
+    result = runner.invoke(app, ["eval"])
+
+    assert result.exit_code == 1
+    assert "make index" in result.stderr
+    assert isinstance(result.exception, SystemExit)
+
+
+def test_eval_without_questions_fails_cleanly(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FINE_PRINT_QUESTIONS_PATH", str(tmp_path / "absent.jsonl"))
+
+    result = runner.invoke(app, ["eval"])
+
+    assert result.exit_code == 1
+    assert "absent.jsonl" in result.stderr
+
+
 @pytest.mark.parametrize(
     "arguments",
-    [["eval"], ["bench"]],
+    [["bench"]],
 )
 def test_unbuilt_commands_say_so_and_fail(arguments: list[str]) -> None:
     result = runner.invoke(app, arguments)

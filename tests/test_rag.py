@@ -3,6 +3,7 @@ from collections.abc import Iterator
 import httpx
 import pytest
 import respx
+import structlog
 
 from fine_print import rag
 from fine_print.config import get_settings
@@ -121,8 +122,24 @@ def test_request_carries_the_model_and_grounding_settings() -> None:
     assert f'"model":"{settings.ollama_model}"' in body
     assert '"temperature":0' in body
     assert f'"num_ctx":{settings.ollama_num_ctx}' in body
+    assert f'"num_predict":{settings.ollama_num_predict}' in body
     assert '"stream":false' in body
     assert "the prompt" in body
+
+
+def test_reply_cap_fits_in_the_space_reserved_for_it() -> None:
+    assert get_settings().ollama_num_predict < rag.RESERVED_TOKENS
+
+
+@respx.mock
+def test_reply_cut_off_at_the_limit_is_kept_and_logged() -> None:
+    body = {"message": {"content": "Repeating and repeating"}, "done_reason": "length"}
+    respx.post(CHAT_URL).mock(return_value=httpx.Response(200, json=body))
+
+    with structlog.testing.capture_logs() as logs:
+        assert rag.call_ollama("hello") == "Repeating and repeating"
+
+    assert logs[0]["event"] == "reply_cut_off_at_token_limit"
 
 
 @respx.mock

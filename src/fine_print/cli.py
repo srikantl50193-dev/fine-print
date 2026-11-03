@@ -166,9 +166,61 @@ def ask(
 
 
 @app.command(name="eval")
-def evaluate() -> None:
+def evaluate(
+    answers: Annotated[
+        bool,
+        typer.Option(
+            "--answers", help="Also ask the model every question. Slow, and needs Ollama."
+        ),
+    ] = False,
+) -> None:
     """Measure retrieval quality for each chunking strategy."""
-    _not_implemented("eval", "the evaluation harness")
+    # Imported here because these load torch and Chroma, which most commands don't need.
+    from fine_print import evaluate as ev  # noqa: PLC0415
+    from fine_print.rag import OllamaError  # noqa: PLC0415
+    from fine_print.store import IndexNotBuiltError  # noqa: PLC0415
+
+    settings = get_settings()
+    try:
+        questions = ev.load_jsonl(settings.questions_path, ev.EvalQuestion)
+        off_topic = ev.load_jsonl(settings.out_of_scope_path, ev.OutOfScopeQuestion)
+        results = [ev.evaluate_strategy(strategy, questions) for strategy in STRATEGIES]
+        threshold = ev.evaluate_threshold(settings.default_strategy, questions, off_topic)
+        answer_result = (
+            ev.evaluate_answers(settings.default_strategy, questions, off_topic)
+            if answers
+            else None
+        )
+    except (FileNotFoundError, ValidationError, IndexNotBuiltError, OllamaError) as error:
+        _fail(str(error))
+
+    typer.echo(f"Evaluated {len(questions)} questions\n\n{ev.format_table(results)}")
+    for result in results:
+        for question in result.misses:
+            typer.echo(f"Missed by '{result.strategy}': {question}")
+
+    typer.echo(
+        f"\nRefusal threshold {threshold.threshold} ({settings.default_strategy} index): "
+        f"keeps {threshold.answerable_kept:.0%} of {len(questions)} answerable questions, "
+        f"refuses {threshold.unanswerable_refused:.0%} of {len(off_topic)} unanswerable ones"
+    )
+    for question in threshold.wrongly_refused:
+        typer.echo(f"Refused, but answerable: {question}")
+    for question in threshold.wrongly_kept:
+        typer.echo(f"Passed to the model, but unanswerable: {question}")
+
+    if answer_result:
+        typer.echo(
+            f"\nModel answers ({settings.ollama_model}):\n"
+            f"  answered: {answer_result.answered:.0%} of answerable questions\n"
+            f"  with a valid citation: {answer_result.cited_any:.0%}\n"
+            f"  citing a passage with the expected text: {answer_result.cited_relevant:.0%}\n"
+            f"  refused: {answer_result.unanswerable_refused:.0%} of unanswerable questions"
+        )
+        for question in answer_result.wrongly_refused:
+            typer.echo(f"Model refused, but answerable: {question}")
+        for question in answer_result.wrongly_answered:
+            typer.echo(f"Model answered, but unanswerable: {question}")
 
 
 @app.command()
