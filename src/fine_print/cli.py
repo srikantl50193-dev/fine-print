@@ -169,6 +169,14 @@ def evaluate(
             "--answers", help="Also ask the model every question. Slow, and needs Ollama."
         ),
     ] = False,
+    holdout: Annotated[
+        bool,
+        typer.Option(
+            "--holdout",
+            help="Report on the held-out questions, using only the default strategy. "
+            "For a frozen configuration: never tune anything from this.",
+        ),
+    ] = False,
 ) -> None:
     """Measure retrieval quality for each chunking strategy."""
     # Imported here because these load torch and Chroma, which most commands don't need.
@@ -177,10 +185,15 @@ def evaluate(
     from fine_print.store import IndexNotBuiltError  # noqa: PLC0415
 
     settings = get_settings()
+    questions_path = settings.holdout_questions_path if holdout else settings.questions_path
+    off_topic_path = settings.holdout_out_of_scope_path if holdout else settings.out_of_scope_path
+    # Scoring every strategy here would invite choosing between them on held-out data.
+    strategies = (settings.default_strategy,) if holdout else STRATEGIES
+    typer.echo(f"Question set: {'HELD-OUT' if holdout else 'tuning'}")
     try:
-        questions = ev.load_jsonl(settings.questions_path, ev.EvalQuestion)
-        off_topic = ev.load_jsonl(settings.out_of_scope_path, ev.OutOfScopeQuestion)
-        results = [ev.evaluate_strategy(strategy, questions) for strategy in STRATEGIES]
+        questions = ev.load_jsonl(questions_path, ev.EvalQuestion)
+        off_topic = ev.load_jsonl(off_topic_path, ev.OutOfScopeQuestion)
+        results = [ev.evaluate_strategy(strategy, questions) for strategy in strategies]
         threshold = ev.evaluate_threshold(settings.default_strategy, questions, off_topic)
         answer_result = (
             ev.evaluate_answers(settings.default_strategy, questions, off_topic)

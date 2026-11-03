@@ -25,8 +25,9 @@ class Settings(BaseSettings):
     chroma_dir: Path = PROJECT_ROOT / "chroma_db"
     questions_path: Path = PROJECT_ROOT / "eval" / "questions.jsonl"
     out_of_scope_path: Path = PROJECT_ROOT / "eval" / "out_of_scope.jsonl"
-    privacyqa_path: Path = PROJECT_ROOT / "eval" / "privacyqa_sample.jsonl"
-    privacyqa_policies_path: Path = PROJECT_ROOT / "eval" / "privacyqa_policies.json"
+    # Held-out set: for reporting on a frozen configuration, and never for tuning.
+    holdout_questions_path: Path = PROJECT_ROOT / "eval" / "holdout" / "questions.jsonl"
+    holdout_out_of_scope_path: Path = PROJECT_ROOT / "eval" / "holdout" / "out_of_scope.jsonl"
     docs_dir: Path = PROJECT_ROOT / "docs"
 
     # Chunking. Sizes are in characters: 1000 characters is about 250 tokens, well below

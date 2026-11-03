@@ -1,4 +1,4 @@
-.PHONY: setup lint format typecheck test data index eval bench api app
+.PHONY: setup lint format typecheck test data index eval eval-holdout compare bench api app
 
 setup:
 	bash scripts/setup.sh
@@ -25,6 +25,13 @@ index:
 
 eval:
 	uv run fine-print eval
+
+# Reports on a frozen configuration. Never tune anything from its results.
+eval-holdout:
+	uv run fine-print eval --holdout --answers
+
+compare:
+	uv run python scripts/compare_chunking.py
 
 bench:
 	uv run fine-print bench

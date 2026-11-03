@@ -8,8 +8,8 @@ from typer.testing import CliRunner
 from fine_print import embed, rag, store
 from fine_print import evaluate as ev
 from fine_print.cli import app
-from fine_print.config import get_settings
-from fine_print.models import NOT_FOUND_MESSAGE, Answer, RetrievedChunk
+from fine_print.config import Strategy, get_settings
+from fine_print.models import NOT_FOUND_MESSAGE, Answer, FrozenModel, RetrievedChunk
 
 runner = CliRunner()
 
@@ -298,6 +298,54 @@ def test_eval_answers_reports_the_model(monkeypatch: pytest.MonkeyPatch) -> None
     assert "with the expected text: 60%" in result.stdout
     assert "Model refused, but answerable: Declined?" in result.stdout
     assert "Model answered, but unanswerable: Invented?" in result.stdout
+
+
+def test_eval_labels_the_tuning_set(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = []
+    original = ev.load_jsonl
+
+    def spy(path: Path, model: type[FrozenModel]) -> list[FrozenModel]:
+        calls.append(path)
+        return original(path, model)
+
+    monkeypatch.setattr(ev, "load_jsonl", spy)
+    monkeypatch.setattr(
+        ev, "evaluate_strategy", lambda *args: (_ for _ in ()).throw(FileNotFoundError("stop"))
+    )
+
+    result = runner.invoke(app, ["eval"])
+
+    assert "Question set: tuning" in result.stdout
+    assert calls == [get_settings().questions_path, get_settings().out_of_scope_path]
+
+
+@pytest.mark.usefixtures("fake_evaluation")
+def test_eval_holdout_reads_only_held_out_files_and_scores_only_the_default_strategy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    paths = []
+    strategies = []
+    original_load = ev.load_jsonl
+    original_strategy = ev.evaluate_strategy
+
+    def spy_load(path: Path, model: type[FrozenModel]) -> list[FrozenModel]:
+        paths.append(path)
+        return original_load(path, model)
+
+    def spy_strategy(strategy: Strategy, questions: list[ev.EvalQuestion]) -> ev.StrategyResult:
+        strategies.append(strategy)
+        return original_strategy(strategy, questions)
+
+    monkeypatch.setattr(ev, "load_jsonl", spy_load)
+    monkeypatch.setattr(ev, "evaluate_strategy", spy_strategy)
+
+    result = runner.invoke(app, ["eval", "--holdout"])
+
+    settings = get_settings()
+    assert result.exit_code == 0, result.stderr
+    assert "Question set: HELD-OUT" in result.stdout
+    assert paths == [settings.holdout_questions_path, settings.holdout_out_of_scope_path]
+    assert strategies == [settings.default_strategy]
 
 
 def test_eval_without_an_index_fails_cleanly(

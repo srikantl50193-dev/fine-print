@@ -18,8 +18,11 @@ fine-print is a local, citation-first RAG system over the Terms of Service and p
 The `v2-rebuild` branch replaces the v1 prototype, which is kept at the `v1-simple` tag.
 
 - **Done:** every stage: download, ingest, chunk, index, RAG, eval, benchmark, API and UI.
-- **Not built:** the PrivacyQA evaluation. The `privacyqa_*` settings in `config.py` and the `eval/privacyqa_` pre-commit exclusion are placeholders for it.
-- **Undecided:** `default_strategy` is `section`, although `fixed` has better recall at the top 5 (see the README's results).
+- **Undecided:** `default_strategy` stays `section` while the fair chunking comparison is reviewed (see the README's results).
+
+## Evaluation data
+
+**Never tune parameters against `eval/holdout/`.** That means thresholds, chunk sizes, the default strategy, prompts and the model, and it applies to editing questions after seeing their scores too. Tune on `eval/questions.jsonl` and `eval/out_of_scope.jsonl`. Run `make eval-holdout` only to report on a frozen configuration, and don't change anything because of what it shows. Once a held-out result has influenced a change, the set is spent and needs replacing.
 
 ## Commands
 
@@ -74,7 +77,7 @@ All settings live in `Settings` in `src/fine_print/config.py`, overridable with 
 - **`data/raw/`** holds real policies named `<company>_<doctype>.md`, with provenance in `MANIFEST.json`. It is gitignored: these are third-party documents, and `scripts/download_data.py` reproduces them.
 - **`data/samples/`** holds fictional companies (Tunely, Ridely), copied to `data/raw/` only when every download fails. Never present results from them as findings about real services. The HTML sample deliberately includes nav, script and style content that ingestion must strip.
 - **`data/external/`** holds gitignored clones of the source repos. `download_data.py` reuses an existing clone without pulling, so delete the clone to get newer documents.
-- **Third-party text stays byte-for-byte as downloaded.** Pre-commit's whitespace fixers exclude `data/raw/`, `data/samples/` and `eval/privacyqa_*`; keep those exclusions when adding hooks.
+- **Third-party text stays byte-for-byte as downloaded.** Pre-commit's whitespace fixers exclude `data/raw/` and `data/samples/`; keep those exclusions when adding hooks.
 - **Document list.** `DOCUMENTS` in `download_data.py` names each document's exact source, folder and file: 20 documents across 10 companies. Folder names are case-sensitive on Linux but not on macOS, so check them with `ls`. The script overwrites but never deletes, so remove a dropped company's files from `data/raw/` by hand.
 - **Absent services.** Neither archive has Uber or Duolingo, and Airbnb's only privacy document is a captured login page. Lyft, Coursera and PayPal replace them. A file's size doesn't prove it is a real policy, so read a new document before adding it.
 - **Known quality issues.** Strava comes from the tosdr snapshot of 2024-07-15, so it is older than the rest. Strava and Zoom terms begin with site navigation text, which ingestion doesn't remove from Markdown files.

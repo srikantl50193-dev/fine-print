@@ -7,6 +7,8 @@ from fine_print.chunking import (
     chunk_document,
     find_sections,
     fixed_size,
+    matching_fixed_size,
+    mean_chunk_chars,
     section_aware,
     sliding_windows,
 )
@@ -228,6 +230,27 @@ def test_text_before_the_first_heading_gets_the_default_section() -> None:
 def test_section_titles_lose_their_markdown() -> None:
     sections = find_sections(r"## [**1\. Intro**](#intro)" + "\nBody.")
     assert [s.title for s in sections] == ["1. Intro"]
+
+
+def test_mean_chunk_chars_of_nothing_is_zero() -> None:
+    assert mean_chunk_chars([], "fixed", SIZE, OVERLAP) == 0.0
+
+
+def test_matching_fixed_size_gets_close_to_the_target(document: Document) -> None:
+    documents = [document, document.model_copy(update={"company": "beta"})]
+    target = 150.0
+
+    size = matching_fixed_size(documents, target, OVERLAP)
+
+    assert size > OVERLAP
+    assert mean_chunk_chars(documents, "fixed", size, OVERLAP) == pytest.approx(target, abs=10)
+
+
+def test_matching_fixed_size_is_closer_than_its_neighbours(document: Document) -> None:
+    size = matching_fixed_size([document], 180.0, OVERLAP)
+    miss = abs(mean_chunk_chars([document], "fixed", size, OVERLAP) - 180.0)
+    assert miss <= abs(mean_chunk_chars([document], "fixed", size + 50, OVERLAP) - 180.0)
+    assert miss <= abs(mean_chunk_chars([document], "fixed", size - 50, OVERLAP) - 180.0)
 
 
 def test_unknown_strategy_is_rejected(document: Document) -> None:

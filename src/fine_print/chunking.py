@@ -1,6 +1,7 @@
 """Two ways of cutting a document into chunks, so they can be compared in eval."""
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from fine_print.config import Strategy
@@ -155,3 +156,42 @@ def chunk_document(document: Document, strategy: Strategy, size: int, overlap: i
     if strategy == "section":
         return section_aware(document, size, overlap)
     raise ValueError(f"Unknown chunking strategy: {strategy}")
+
+
+def mean_chunk_chars(
+    documents: Sequence[Document], strategy: Strategy, size: int, overlap: int
+) -> float:
+    """Return the mean chunk length over some documents, or 0 if there are no chunks."""
+    lengths = [
+        len(chunk.text)
+        for document in documents
+        for chunk in chunk_document(document, strategy, size, overlap)
+    ]
+    return sum(lengths) / len(lengths) if lengths else 0.0
+
+
+def matching_fixed_size(documents: Sequence[Document], target_mean: float, overlap: int) -> int:
+    """Find the fixed chunk size whose mean chunk length is closest to a target.
+
+    Keyword-based evaluation favours longer chunks, so strategies can only be compared
+    fairly when their chunks are about the same length.
+
+    Args:
+        documents: The documents to chunk.
+        target_mean: The mean chunk length to match, in characters.
+        overlap: The overlap to use, which has to stay the same as the other strategy's.
+
+    Returns:
+        The chunk size, which is always larger than the overlap.
+    """
+    low, high = overlap + 1, max(overlap + 2, int(target_mean * 2))
+    while high - low > 1:
+        middle = (low + high) // 2
+        if mean_chunk_chars(documents, "fixed", middle, overlap) < target_mean:
+            low = middle
+        else:
+            high = middle
+    return min(
+        (low, high),
+        key=lambda size: abs(mean_chunk_chars(documents, "fixed", size, overlap) - target_mean),
+    )

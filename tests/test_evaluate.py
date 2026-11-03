@@ -193,6 +193,20 @@ def test_load_jsonl_skips_blank_lines_and_rejects_bad_ones(tmp_path: Path) -> No
         load_jsonl(path, OutOfScopeQuestion)
 
 
+def test_held_out_questions_are_well_formed_and_separate_from_the_tuning_set() -> None:
+    settings = get_settings()
+    questions = load_jsonl(settings.holdout_questions_path, EvalQuestion)
+    off_topic = load_jsonl(settings.holdout_out_of_scope_path, OutOfScopeQuestion)
+    assert len(questions) == 20
+    assert len(off_topic) == 10
+    assert {q.doc_type for q in questions} == {"terms", "privacy"}
+    assert len({q.company for q in questions}) == 10
+
+    tuning = {q.question for q in load_jsonl(settings.questions_path, EvalQuestion)}
+    tuning |= {q.question for q in load_jsonl(settings.out_of_scope_path, OutOfScopeQuestion)}
+    assert not tuning & {q.question for q in [*questions, *off_topic]}
+
+
 def test_shipped_question_files_are_well_formed() -> None:
     settings = get_settings()
     questions = load_jsonl(settings.questions_path, EvalQuestion)
