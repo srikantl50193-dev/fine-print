@@ -1,0 +1,45 @@
+Tunely Privacy Policy
+
+This is a FICTIONAL sample document created to test the fine-print pipeline. Tunely is not a real company and nothing here describes a real service.
+
+Last updated: 1 March 2026
+
+1. Information We Collect
+
+When you create a Tunely account we ask for your email address, a display name, your date of birth and a password. If you subscribe to a paid plan, our payment partner handles your card details and we only store the last four digits and the expiry month. As you use the app we record the songs and podcasts you play, how long you listen, the playlists you create and the searches you type. We also log technical details including your device model, operating system, app version and IP address. If you allow it, we collect precise location from your phone so that we can suggest concerts nearby, and you can switch this off at any time in your device settings. If you connect a social account, we receive your public profile and friends list from that provider. We do not read the private messages on connected accounts. Voice searches are only recorded while you hold the microphone button, and those clips are transcribed automatically and then discarded.
+
+2. How We Use Your Information
+
+We use your listening history to build personalized recommendations and the weekly discovery playlist. We use your email address to send receipts and security alerts. Aggregated, de-identified listening trends help us pay royalties to artists accurately.
+
+3. Advertising
+
+Listeners on the free plan hear audio advertisements. We choose those ads using your age range, approximate city and music taste. Premium subscribers do not hear ads. You can opt out of personalized advertising under Settings, then Privacy, after which you will still hear ads but they will be less relevant.
+
+4. Sharing With Third Parties
+
+We never sell your personal information for money. We share data with service providers such as our cloud hosting vendor and our payment processor, who may only act on our instructions. Record labels receive anonymized play counts. We may also disclose information when a valid court order requires it.
+
+5. Data Retention
+
+We keep your listening history for as long as your account is open. Raw server logs containing IP addresses are erased after 90 days. After you close your account we delete your personal data within 30 days, except for billing records, which tax law requires us to hold for seven years.
+
+6. Your Rights and Choices
+
+You can download a copy of your data from the Privacy page in Settings, and the export usually arrives within 48 hours. You may also correct your profile or ask us to erase your account. Residents of the European Union may lodge a complaint with their local data protection authority.
+
+7. Children
+
+Tunely is not intended for anyone under the age of 13. If we learn that a child under 13 has registered, we will remove the account and its data promptly. Parents who believe this has happened can write to kids@tunely.example.
+
+8. Security
+
+Passwords are stored as salted hashes and all traffic between the app and our servers is encrypted with TLS. If a breach puts your data at risk, we will notify you by email within 72 hours of confirming it.
+
+9. International Transfers
+
+Tunely is based in Ireland, and our main servers are located in Germany. Support staff in Canada may view account information to resolve your tickets. Where data leaves the European Economic Area, we rely on standard contractual clauses.
+
+10. Contact Us
+
+Questions about this policy can be sent to our data protection officer at privacy@tunely.example. We aim to reply within 14 days.
