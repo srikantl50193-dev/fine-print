@@ -2,12 +2,15 @@ from pathlib import Path
 
 import pytest
 
+from fine_print.chunking import find_sections
+from fine_print.config import get_settings
 from fine_print.ingest import (
-    ensure_sample_data,
-    html_to_text,
+    clean_text,
+    html_to_markdown,
+    load_document,
     load_documents,
+    normalize_headings,
     parse_filename,
-    split_into_sections,
 )
 
 # A tiny hand-written PDF with one line of text, so the tests need no PDF-writing
@@ -29,22 +32,26 @@ startxref
 
 
 @pytest.mark.parametrize(
-    "filename, expected",
+    ("filename", "expected"),
     [
-        ("spotify_privacy.txt", ("spotify", "privacy")),
-        ("uber_terms.html", ("uber", "terms")),
-        ("Uber_Terms.PDF", ("uber", "terms")),
-        ("uber_privacy_policy.pdf", ("uber", "privacy_policy")),
+        ("spotify_privacy.md", ("spotify", "privacy")),
+        ("lyft_terms.html", ("lyft", "terms")),
+        ("Lyft_Terms.PDF", ("lyft", "terms")),
+        ("lyft_privacy_policy.pdf", ("lyft", "privacy_policy")),
     ],
 )
 def test_parse_filename(filename: str, expected: tuple[str, str]) -> None:
-    assert parse_filename(Path(filename)) == expected
+    assert parse_filename(Path("some/folder") / filename) == expected
 
 
-@pytest.mark.parametrize("filename", ["uber.txt", "_terms.txt", "uber_.txt"])
+@pytest.mark.parametrize("filename", ["lyft.txt", "_terms.txt", "lyft_.txt", "MANIFEST.json"])
 def test_parse_filename_rejects_bad_names(filename: str) -> None:
     with pytest.raises(ValueError, match="expected <company>_<doctype>"):
         parse_filename(Path(filename))
+
+
+def test_clean_text_removes_invisible_characters_and_keeps_paragraphs() -> None:
+    assert clean_text("a\u200bb\ufeff   c  \n\n\n\n d\xa0e ") == "ab c\n\nd e"
 
 
 def test_html_keeps_headings_and_body_but_drops_page_furniture() -> None:
@@ -57,43 +64,76 @@ def test_html_keeps_headings_and_body_but_drops_page_furniture() -> None:
         while</a>.</p>
     <footer>Copyright</footer></body></html>
     """
-    assert html_to_text(html) == "## Your Data\n\nWe keep it for a while."
+    assert html_to_markdown(html) == "## Your Data\n\nWe keep it for a while."
 
 
-def test_split_recognizes_each_heading_style() -> None:
-    text = (
-        "Intro text before any heading.\n\n"
-        "# Markdown Heading\nBody one.\n\n"
-        "2.1 Numbered Heading\nBody two.\n\n"
-        "ALL CAPS HEADING\nBody three.\n\n"
-        "Title Case Heading\n\nBody four."
+@pytest.mark.parametrize(
+    ("line", "heading"),
+    [
+        ("Underlined Title\n=====", "# Underlined Title"),
+        ("Underlined Subtitle\n---", "## Underlined Subtitle"),
+        ("### Already A Heading", "### Already A Heading"),
+        ("**2\\. ORDERING SERVICES**", "## 2. ORDERING SERVICES"),
+        ("1\\. The Netflix Service", "## 1. The Netflix Service"),
+        ("2.1 Numbered Heading", "## 2.1 Numbered Heading"),
+        ("ALL CAPS HEADING", "## ALL CAPS HEADING"),
+    ],
+)
+def test_every_heading_style_becomes_a_hash_heading(line: str, heading: str) -> None:
+    assert normalize_headings(line) == heading
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "1. We collect your email address.",
+        r"4\. Account Access. Your login details are personal and should be kept confidential.",
+        "**Bold sentence that ends with a period.**",
+        "[A Navigation Link](https://example.com)",
+        "| TABLE ROW | ANOTHER CELL |",
+        "*   A LIST ITEM",
+        "Plain sentence without any capitals",
+    ],
+)
+def test_ordinary_lines_are_not_mistaken_for_headings(line: str) -> None:
+    assert normalize_headings(line) == line
+
+
+def test_horizontal_rule_after_a_blank_line_is_not_a_heading() -> None:
+    text = "Some paragraph.\n\n---\n\nNext paragraph."
+    assert normalize_headings(text) == text
+
+
+def test_title_case_needs_blank_lines_around_it_and_is_opt_in() -> None:
+    standalone = "Before.\n\nData We Collect\n\nAfter."
+    wrapped = "Before.\nData We Collect\nAfter."
+    assert "## Data We Collect" in normalize_headings(standalone, allow_title_case=True)
+    assert normalize_headings(standalone) == standalone
+    assert normalize_headings(wrapped, allow_title_case=True) == wrapped
+
+
+def test_markdown_file_is_normalized_but_its_title_case_lines_are_not(tmp_path: Path) -> None:
+    path = tmp_path / "acme_terms.md"
+    path.write_text("Terms\n=====\n\nHome Page Link\n\nBody.", encoding="utf-8")
+    document = load_document(path)
+    assert (document.company, document.doc_type, document.source) == (
+        "acme",
+        "terms",
+        "acme_terms.md",
     )
-    sections = split_into_sections(text)
-    assert [(s.heading, s.text) for s in sections] == [
-        ("General", "Intro text before any heading."),
-        ("Markdown Heading", "Body one."),
-        ("2.1 Numbered Heading", "Body two."),
-        ("ALL CAPS HEADING", "Body three."),
-        ("Title Case Heading", "Body four."),
-    ]
+    assert document.text == "# Terms\n\nHome Page Link\n\nBody."
 
 
-def test_sentences_are_not_mistaken_for_headings() -> None:
-    text = "1. We collect your email address.\nThe Service Is Great.\nWrapped Title Case Line\nend"
-    assert [s.heading for s in split_into_sections(text)] == ["General"]
-
-
-def test_load_documents_reads_every_supported_format(tmp_path: Path) -> None:
-    (tmp_path / "acme_terms.txt").write_text("Plain text terms.")
+def test_load_documents_reads_supported_types_in_filename_order(tmp_path: Path) -> None:
     (tmp_path / "beta_terms.html").write_text("<h1>Fees</h1><p>Five dollars.</p>")
-    (tmp_path / "gamma_privacy.pdf").write_bytes(MINIMAL_PDF)
-    (tmp_path / "notes.md").write_text("Ignored, because .md is not a supported type.")
+    (tmp_path / "acme_terms.txt").write_text("Plain text terms.")
+    (tmp_path / "gamma_privacy.md").write_text("# Data\nWe keep it.")
+    (tmp_path / "MANIFEST.json").write_text("{}")
 
-    documents = {doc.company: doc for doc in load_documents(tmp_path)}
+    documents = load_documents(tmp_path)
 
-    assert set(documents) == {"acme", "beta", "gamma"}
-    assert documents["beta"].sections[0].heading == "Fees"
-    assert "keep your data safe" in documents["gamma"].sections[0].text
+    assert [document.company for document in documents] == ["acme", "beta", "gamma"]
+    assert find_sections(documents[1].text)[0].title == "Fees"
 
 
 def test_same_document_in_two_formats_is_rejected(tmp_path: Path) -> None:
@@ -103,10 +143,41 @@ def test_same_document_in_two_formats_is_rejected(tmp_path: Path) -> None:
         load_documents(tmp_path)
 
 
-def test_samples_are_only_added_when_raw_dir_is_empty(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    raw_dir = tmp_path / "raw"
-    assert len(ensure_sample_data(raw_dir)) == 2
-    assert "fictional sample" in capsys.readouterr().out
-    assert ensure_sample_data(raw_dir) == []
+def test_file_without_text_is_skipped(tmp_path: Path) -> None:
+    (tmp_path / "acme_terms.txt").write_text("  \n ")
+    assert load_documents(tmp_path) == []
+
+
+def test_pdf_text_is_extracted(tmp_path: Path) -> None:
+    path = tmp_path / "acme_privacy.pdf"
+    path.write_bytes(MINIMAL_PDF)
+    assert "We keep your data safe." in load_document(path).text
+
+
+def test_html_page_title_stays_out_of_the_text() -> None:
+    html = "<html><head><title>Page Title</title></head><body><p>Body.</p></body></html>"
+    assert html_to_markdown(html) == "Body."
+
+
+def test_unreadable_pdf_gives_a_clear_error(tmp_path: Path) -> None:
+    path = tmp_path / "acme_terms.pdf"
+    path.write_bytes(b"this is not a pdf")
+    with pytest.raises(ValueError, match=r"Could not read acme_terms\.pdf"):
+        load_document(path)
+
+
+def test_missing_folder_raises(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError):
+        load_documents(tmp_path / "absent")
+
+
+def test_sample_html_strips_scripts_and_navigation() -> None:
+    document = load_document(get_settings().samples_dir / "ridely_terms.html")
+    assert "must not reach the index" not in document.text
+    assert "Careers" not in document.text
+    assert find_sections(document.text)[0].title == "Ridely Terms of Service"
+
+
+def test_sample_text_finds_its_numbered_headings() -> None:
+    document = load_document(get_settings().samples_dir / "tunely_privacy.txt")
+    assert "1. Information We Collect" in [s.title for s in find_sections(document.text)]

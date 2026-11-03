@@ -1,51 +1,59 @@
-"""Load raw documents and clean them into a list of titled sections."""
+"""Load raw policy files into Documents whose text is Markdown with `#` headings."""
 
 import re
-import shutil
 import unicodedata
-from dataclasses import dataclass
 from pathlib import Path
 
+import structlog
 from bs4 import BeautifulSoup
 from pypdf import PdfReader
+from pypdf.errors import PyPdfError
 
-from fine_print import config
+from fine_print.models import Document
 
-SUPPORTED_SUFFIXES = {".txt", ".html", ".htm", ".pdf"}
-DEFAULT_SECTION = "General"
+log = structlog.get_logger(__name__)
+
+MARKDOWN_SUFFIXES = {".md"}
+HTML_SUFFIXES = {".html", ".htm"}
+SUPPORTED_SUFFIXES = {*MARKDOWN_SUFFIXES, *HTML_SUFFIXES, ".txt", ".pdf"}
+
 MAX_HEADING_WORDS = 12
+MAX_HEADING_CHARS = 200
+MIN_TITLE_CASE_RATIO = 0.75
+MIN_CAPS_HEADING_CHARS = 4
+MIN_TITLE_CASE_WORD_CHARS = 4
 
-NOISE_TAGS = ["script", "style", "noscript", "nav", "header", "footer", "aside", "form"]
+NOISE_TAGS = ["title", "script", "style", "noscript", "nav", "header", "footer", "aside", "form"]
 HEADING_TAGS = ["h1", "h2", "h3", "h4", "h5", "h6"]
 BLOCK_TAGS = ["p", "div", "li", "ul", "ol", "table", "tr", "section", "article", "br"]
 
-MARKDOWN_HEADING = re.compile(r"^#{1,6}\s+(.+)$")
+ATX_HEADING = re.compile(r"^#{1,6}\s")
+SETEXT_HEADING = re.compile(rf"^([^\n]{{1,{MAX_HEADING_CHARS}}})\n(=+|-+)$", re.MULTILINE)
+BOLD_LINE = re.compile(r"^\*\*([^*]+)\*\*$")
 NUMBERED_HEADING = re.compile(r"^\d+(\.\d+)*\.?\s+[A-Z]")
 # Zero-width characters are common in text copied from web pages.
-INVISIBLE_CHARS = re.compile(r"[​‌‍⁠﻿]")
-
-
-@dataclass(frozen=True)
-class Section:
-    heading: str
-    text: str
-
-
-@dataclass(frozen=True)
-class Document:
-    company: str
-    doc_type: str
-    source: str
-    sections: list[Section]
+INVISIBLE_CHARS = re.compile("[\u200b\u200c\u200d\u2060\ufeff]")
+# Table rows, links, lists, images and quotes are never headings, whatever their case.
+MARKUP_PREFIXES = ("|", "[", "*", "-", "!", ">")
 
 
 def parse_filename(path: Path) -> tuple[str, str]:
-    """Split `<company>_<doctype>.<ext>` into (company, doc_type), lowercased."""
+    """Split `<company>_<doctype>.<ext>` into (company, doc_type), lowercased.
+
+    Args:
+        path: The document's path. Only its name is read.
+
+    Returns:
+        The company and the document type.
+
+    Raises:
+        ValueError: If the name does not follow the pattern.
+    """
     company, separator, doc_type = path.stem.lower().partition("_")
     if not (company and separator and doc_type):
         raise ValueError(
             f"Bad filename '{path.name}': expected <company>_<doctype>.<ext>, "
-            "for example uber_terms.html"
+            "for example spotify_terms.md"
         )
     return company, doc_type
 
@@ -57,13 +65,14 @@ def clean_text(text: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
 
 
-def html_to_text(html: str) -> str:
-    """Convert HTML to plain text, rewriting heading tags as `## Heading` lines."""
+def html_to_markdown(html: str) -> str:
+    """Convert HTML to text with `#` headings, dropping scripts and page furniture."""
     soup = BeautifulSoup(html, "html.parser")
     for tag in soup(NOISE_TAGS):
         tag.decompose()
     for tag in soup(HEADING_TAGS):
-        tag.replace_with(f"\n\n## {' '.join(tag.get_text().split())}\n\n")
+        level = int(tag.name[1])
+        tag.replace_with(f"\n\n{'#' * level} {' '.join(tag.get_text().split())}\n\n")
     for tag in soup(BLOCK_TAGS):
         tag.insert_before("\n\n")
         tag.insert_after("\n\n")
@@ -72,111 +81,112 @@ def html_to_text(html: str) -> str:
     return "\n\n".join(" ".join(p.split()) for p in paragraphs if p.strip())
 
 
-def pdf_to_text(path: Path) -> str:
-    """Extract the text of every page in a PDF."""
-    pages = PdfReader(path).pages
-    return "\n\n".join(page.extract_text() or "" for page in pages)
+def _is_title_case(line: str) -> bool:
+    """Return whether most longer words start with a capital, as in 'Data We Collect'."""
+    words = [word for word in line.split() if len(word) >= MIN_TITLE_CASE_WORD_CHARS]
+    capitalized = sum(word[0].isupper() for word in words)
+    return bool(words) and capitalized / len(words) >= MIN_TITLE_CASE_RATIO
 
 
-def read_text(path: Path) -> str:
-    """Read any supported file type as cleaned plain text."""
+def _heading_from_line(line: str, *, allow_title_case: bool) -> str | None:
+    """Return the heading text if this line looks like a heading, else None."""
+    bold = BOLD_LINE.match(line)
+    # Markdown converters escape list-like numbering, as in "1\. The Service".
+    title = (bold.group(1) if bold else line).strip().replace("\\", "")
+    if (
+        not title
+        or (not bold and line.startswith(MARKUP_PREFIXES))
+        or len(title.split()) > MAX_HEADING_WORDS
+        or title[-1] in ".,;:?!"
+    ):
+        return None
+    if bold or NUMBERED_HEADING.match(title):
+        return title
+    if title.isupper() and len(title) >= MIN_CAPS_HEADING_CHARS:
+        return title
+    return title if allow_title_case and _is_title_case(title) else None
+
+
+def normalize_headings(text: str, *, allow_title_case: bool = False) -> str:
+    """Rewrite every heading style as a `#` heading line.
+
+    Args:
+        text: Cleaned text, with stripped lines.
+        allow_title_case: Also treat a Title Case line with blank lines around it as a
+            heading. This suits plain text and PDFs. Markdown marks its headings, so there
+            it would only add false positives such as navigation links.
+
+    Returns:
+        The text with `#` headings.
+    """
+    text = SETEXT_HEADING.sub(
+        lambda match: f"{'#' if match.group(2)[0] == '=' else '##'} {match.group(1)}", text
+    )
+    lines = text.splitlines()
+    output: list[str] = []
+    for index, line in enumerate(lines):
+        if not line or ATX_HEADING.match(line):
+            output.append(line)
+            continue
+        stands_alone = (index == 0 or not lines[index - 1]) and (
+            index == len(lines) - 1 or not lines[index + 1]
+        )
+        heading = _heading_from_line(line, allow_title_case=allow_title_case and stands_alone)
+        output.append(f"## {heading}" if heading else line)
+    return "\n".join(output)
+
+
+def read_as_markdown(path: Path) -> str:
+    """Read any supported file as cleaned Markdown with `#` headings."""
     suffix = path.suffix.lower()
     if suffix == ".pdf":
-        raw = pdf_to_text(path)
-    elif suffix in {".html", ".htm"}:
-        raw = html_to_text(path.read_text(encoding="utf-8", errors="replace"))
+        pages = PdfReader(path).pages
+        raw = "\n\n".join(page.extract_text() or "" for page in pages)
     else:
         raw = path.read_text(encoding="utf-8", errors="replace")
-    return clean_text(raw)
-
-
-def is_title_case(line: str) -> bool:
-    """True if most longer words start with a capital ('Data We Collect')."""
-    words = [word for word in line.split() if len(word) > 3]
-    capitalized = sum(word[0].isupper() for word in words)
-    return bool(words) and capitalized / len(words) >= 0.75
-
-
-def heading_from_line(line: str, stands_alone: bool) -> str | None:
-    """Return the heading text if this line looks like a heading, else None.
-
-    `stands_alone` means blank lines surround it. Title Case alone is weak
-    evidence (a wrapped line can look the same), so it also requires this.
-    """
-    if match := MARKDOWN_HEADING.match(line):
-        return match.group(1).strip()
-    if len(line.split()) > MAX_HEADING_WORDS or line[-1] in ".,;:?!":
-        return None
-    if NUMBERED_HEADING.match(line) or (line.isupper() and len(line) > 3):
-        return line
-    return line if stands_alone and is_title_case(line) else None
-
-
-def split_into_sections(text: str) -> list[Section]:
-    """Group lines under the most recent heading, dropping empty sections."""
-    lines = text.splitlines()
-    sections: list[Section] = []
-    heading = DEFAULT_SECTION
-    body: list[str] = []
-
-    def flush() -> None:
-        joined = " ".join(line for line in body if line)
-        if joined:
-            sections.append(Section(heading, joined))
-        body.clear()
-
-    for i, line in enumerate(lines):
-        if not line:
-            continue
-        before_blank = i == 0 or not lines[i - 1]
-        after_blank = i == len(lines) - 1 or not lines[i + 1]
-        found = heading_from_line(line, before_blank and after_blank)
-        if found:
-            flush()
-            heading = found
-        else:
-            body.append(line)
-    flush()
-    return sections
-
-
-def ensure_sample_data(raw_dir: Path = config.RAW_DATA_DIR) -> list[Path]:
-    """If raw_dir has no documents, copy in the fictional samples and say so."""
-    raw_dir.mkdir(parents=True, exist_ok=True)
-    if _supported_files(raw_dir):
-        return []
-    copied = [
-        Path(shutil.copy(sample, raw_dir / sample.name))
-        for sample in _supported_files(config.SAMPLE_DATA_DIR)
-    ]
-    names = ", ".join(path.name for path in copied)
-    print(f"NOTICE: {raw_dir} was empty, so fictional sample documents were added: {names}")
-    return copied
+    if suffix in HTML_SUFFIXES:
+        return clean_text(html_to_markdown(raw))
+    return normalize_headings(clean_text(raw), allow_title_case=suffix not in MARKDOWN_SUFFIXES)
 
 
 def load_document(path: Path) -> Document:
-    """Parse one file into a Document."""
+    """Parse one file into a Document.
+
+    Raises:
+        ValueError: If the filename is invalid or a PDF cannot be read.
+    """
     company, doc_type = parse_filename(path)
-    return Document(company, doc_type, path.name, split_into_sections(read_text(path)))
+    try:
+        text = read_as_markdown(path)
+    except PyPdfError as error:
+        raise ValueError(f"Could not read {path.name}: {error}") from error
+    return Document(company=company, doc_type=doc_type, source=path.name, text=text)
 
 
-def load_documents(raw_dir: Path = config.RAW_DATA_DIR) -> list[Document]:
-    """Load every supported file, skipping any that contain no extractable text."""
+def load_documents(raw_dir: Path) -> list[Document]:
+    """Load every supported file in a folder, skipping any with no extractable text.
+
+    Args:
+        raw_dir: The folder of `<company>_<doctype>.<ext>` files.
+
+    Returns:
+        The documents, in filename order.
+
+    Raises:
+        FileNotFoundError: If the folder does not exist.
+        ValueError: If a filename is invalid, or one document exists in two formats.
+    """
     documents: list[Document] = []
     seen: dict[str, str] = {}
-    for path in _supported_files(raw_dir):
+    paths = sorted(p for p in raw_dir.iterdir() if p.suffix.lower() in SUPPORTED_SUFFIXES)
+    for path in paths:
         key = path.stem.lower()
         if key in seen:
             raise ValueError(f"Duplicate document: {seen[key]} and {path.name}. Keep one.")
         seen[key] = path.name
         document = load_document(path)
-        if document.sections:
+        if document.text:
             documents.append(document)
         else:
-            print(f"WARNING: no text found in {path.name} (a scanned PDF?). Skipping it.")
+            log.warning("no_text_extracted", file=path.name)
     return documents
-
-
-def _supported_files(directory: Path) -> list[Path]:
-    """List the documents in a directory, in a stable order."""
-    return sorted(p for p in directory.iterdir() if p.suffix.lower() in SUPPORTED_SUFFIXES)

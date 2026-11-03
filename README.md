@@ -1,186 +1,163 @@
 # fine-print
 
-Nobody reads the Terms of Service, but everybody agrees to them. **fine-print** lets you ask plain-English questions, such as "Can I get a refund?" or "Do they sell my data?", and get answers drawn only from the policy text, with a citation for each claim. It's a retrieval-augmented generation (RAG) system built from the individual parts, without LangChain or LlamaIndex, so every step is visible: parsing, chunking, embedding, vector search and prompting. It runs entirely on your own machine, with no API keys and no cost. It also measures its own retrieval quality, because a RAG demo that seems to work and one you can show works are different things.
+Ask plain-English questions about the Terms of Service and privacy policies of popular apps, and get answers drawn only from the policy text, with a citation for each claim. It runs entirely on your own machine, with no API keys and no cost.
 
-> **Status:** the repo ships with two fictional sample documents, so the pipeline runs out of the box. The results below test the plumbing and say little about retrieval quality on real policies. See [Results](#results).
+It's built from the individual parts, without LangChain or LlamaIndex, so every step is visible: parsing, chunking, embedding, vector search and prompting. It also measures itself, including where it falls short.
 
-## Architecture
-
-```mermaid
-flowchart TD
-    subgraph Indexing["Indexing: make index"]
-        A["data/raw<br/>.txt, .html, .pdf"] --> B["ingest.py<br/>clean text, keep headings"]
-        B --> C["chunking.py<br/>fixed or section"]
-        C --> D["embed.py<br/>bge-small-en-v1.5"]
-        D --> E[("Chroma<br/>HNSW index on disk")]
-    end
-
-    subgraph Answering["Answering: make app"]
-        F["Question and<br/>optional company filter"] --> G["embed.py<br/>embed the question"]
-        G --> H["store.py<br/>find top_k chunks"]
-        E --> H
-        H --> I["rag.py<br/>build prompt from chunks"]
-        I --> J["Ollama<br/>llama3.2"]
-        J --> K["Answer with citations<br/>in Streamlit"]
-    end
-```
+The corpus is 20 documents from 10 companies: Coursera, Discord, Lyft, Netflix, PayPal, Pinterest, Reddit, Spotify, Strava and Zoom. Answers can be wrong and aren't legal advice, so check the cited text.
 
 ## Quickstart
 
-You need [uv](https://docs.astral.sh/uv/) and [Ollama](https://ollama.com/).
+You need [uv](https://docs.astral.sh/uv/getting-started/installation/), `make` and [Ollama](https://ollama.com/). uv installs the right Python version for you.
 
 ```bash
-ollama pull llama3.2     # the local LLM, about 2 GB
-make install             # creates .venv and installs the Python packages
-make index               # builds both indexes; the first run downloads the embedding model
-make app                 # opens the UI at http://localhost:8501
+ollama pull llama3.2   # the local model, about 2 GB
+make setup             # create .venv from uv.lock
+make data              # download the policy documents into data/raw/
+make index             # build the vector index; the first run downloads the embedding model
 ```
+
+Then ask from the command line:
+
+```bash
+uv run fine-print ask "Can I get a refund?" --company spotify
+uv run fine-print ask "Can I get a refund?" --company spotify --retrieve-only   # skips the model
+```
+
+Or use the web UI, which talks to the API, so it needs both running in separate terminals:
+
+```bash
+make api   # http://127.0.0.1:8000, with interactive docs at /docs
+make app   # http://localhost:8501
+```
+
+## Commands
 
 | Command | What it does |
 | --- | --- |
-| `make install` | Create `.venv` with Python 3.11 and install dependencies |
-| `make index` | Build the Chroma index for both chunking strategies |
-| `make eval` | Report recall@k and MRR for each strategy |
-| `make bench` | Compare FAISS flat and HNSW search |
-| `make app` | Start the Streamlit UI |
-| `make test` | Run the tests (no Ollama or index needed) |
+| `make setup` | Create or repair `.venv` from `uv.lock` |
+| `make data` | Download the policy documents |
+| `make index` | Build the vector index for both chunking strategies |
+| `make eval` | Measure retrieval quality and the refusal threshold on the tuning set |
+| `make eval-holdout` | Report on the held-out set, including the model. Never tune from this |
+| `make compare` | Compare chunking strategies at matched chunk length, on the tuning set |
+| `make bench` | Compare vector index types, and save `docs/benchmark.png` |
+| `make api` | Start the API on `127.0.0.1:8000` |
+| `make app` | Start the web UI on `localhost:8501` |
+| `make lint` | Check linting and formatting |
+| `make format` | Apply lint fixes and formatting |
+| `make typecheck` | Run the type checker |
+| `make test` | Run the tests with coverage; they need no model, index or Ollama |
 
-You can also work from the command line:
+`uv run fine-print eval --answers` also asks the model every evaluation question. Every setting can be overridden with a `FINE_PRINT_*` environment variable or a `.env` file; see [.env.example](.env.example).
 
-```bash
-uv run python scripts/ask.py "Can I cancel for free?" --company ridely
-uv run python scripts/ask.py "Can I cancel for free?" --retrieve-only   # skips the LLM
-```
+## Environment
 
-To use a different LLM, run `FINE_PRINT_OLLAMA_MODEL=mistral make app`. All other settings are in [config.py](src/fine_print/config.py).
+`.venv` is managed by uv, so use `uv run` or `.venv/bin/...` to run things. Add dependencies with `uv add` or `uv add --dev`, not `pip`. To start again from scratch, run `rm -rf .venv && make setup`.
 
-### Using real documents
+## How it works
 
-1. Add files to `data/raw/` named `<company>_<doctype>.<ext>`, such as `spotify_privacy.txt` or `uber_terms.html`. The text before the first underscore becomes the company name.
-2. Delete `tunely_privacy.txt` and `ridely_terms.html` from `data/raw/`. If the folder is ever empty, the samples are copied back and a notice is printed.
-3. Replace `eval/questions.jsonl` with questions about your documents.
-4. Run `make index`, then `make eval` and `make bench`.
+1. **Ingest** normalizes each policy to Markdown with `#` headings.
+2. **Chunk** cuts it into passages of up to 1,000 characters, in one of two ways. `fixed` slides a window over the whole document. `section` never crosses a heading.
+3. **Embed** turns each passage into a vector with `BAAI/bge-small-en-v1.5`.
+4. **Store** keeps the vectors in a Chroma HNSW index on disk.
+5. **Retrieve** finds the closest passages to a question, optionally filtered by company and document type.
+6. **Refuse or answer.** If no passage scores at least 0.6, the answer is "Not found in the documents" and the model isn't called. Otherwise `llama3.2` answers from those passages only, and must cite each claim.
+7. **Check citations.** Only labels of passages the model was actually shown count as citations. An answer with none is flagged as unverified.
 
-Each evaluation question names a company and the keywords that a relevant chunk must contain:
-
-```json
-{"question": "Can I bring my dog in a Ridely car?", "company": "ridely", "keywords": ["pet option"]}
-```
-
-## Project layout
-
-```
-src/fine_print/
-  config.py     every setting, in one place
-  ingest.py     load and clean documents, keep section headings
-  chunking.py   the fixed_size and section_aware strategies
-  embed.py      embedding wrapper with batching
-  store.py      build and query Chroma, with metadata filters
-  rag.py        retrieve, build the prompt, call Ollama, extract citations
-  evaluate.py   recall@k and MRR for each strategy
-scripts/        build_index.py, ask.py, benchmark_index.py
-app.py          Streamlit UI
-eval/           questions.jsonl
-tests/          pytest suite
-```
-
-## The concepts, in plain language
-
-### Chunking
-
-Whole policies are too long to embed well or to fit in a prompt, so we cut them into passages. The cut matters: an answer split across two chunks may never be found, and a chunk that covers five topics matches none of them strongly. This project compares two strategies:
-
-- **Fixed size** slides a 150-word window through the document, with each window sharing 30 words with the previous one. The overlap means a sentence cut at one boundary still appears whole in the neighbouring chunk. It's simple, but it ignores the document's structure.
-- **Section-aware** makes one chunk per section, and splits a section only if it's longer than 150 words. Chunks stay on one topic and each begins with its heading, but their sizes vary.
-
-### Embeddings
-
-An embedding model turns text into a list of numbers (here, 384 of them), placing passages with similar meanings close together. That's why "get my money back" can match a passage about "refunds" even though they share no words. We use `BAAI/bge-small-en-v1.5`, which is small enough to run quickly on a laptop.
-
-### Cosine similarity
-
-To compare two embeddings, we measure the angle between them. The score is 1 if they point the same way and near 0 if they're unrelated. We normalize every vector to length 1, which makes cosine similarity the same as a simple dot product. Chroma reports *distance*, which is `1 - similarity`.
-
-### HNSW, and what M and ef do
-
-Comparing a question with every vector is exact, but gets slow at large scale. HNSW (Hierarchical Navigable Small World) instead links each vector to its near neighbours, forming a graph with several levels. It's a bit like travelling by motorway, then main roads, then side streets: a search jumps across the upper levels and then closes in on the target. It's very fast, but it's *approximate*, so it can occasionally miss a true nearest neighbour.
-
-| Setting | Meaning | Raising it |
-| --- | --- | --- |
-| `M` | Links per node in the graph | Better recall, more memory |
-| `construction_ef` | Candidates considered when adding a node | A better graph, slower build; no effect on query speed |
-| `search_ef` | Candidates considered when answering a query | Better recall, slower queries |
-
-### Metadata filtering
-
-Every chunk is stored with its `company`, `doc_type`, `section`, `chunk_id` and `strategy`. Choosing a company adds a filter, so results can only come from that company's documents. Without it, a question about Uber's refunds might retrieve another company's refund section, because the two passages mean almost the same thing.
-
-### RAG
-
-An LLM on its own will confidently answer from memory, which may be outdated or invented. Retrieval-augmented generation instead has three steps: **retrieve** the most relevant chunks, **augment** the prompt with them, and **generate** an answer. Here the prompt tells the model to use only that text, cite each claim as `[company - section]`, and reply "Not found in the documents" if the text doesn't contain the answer. The app checks each citation against the retrieved chunks, and warns you if the answer has no valid citation.
-
-### Recall@k and MRR
-
-These measure retrieval only, so they don't involve the LLM. For each test question, we find the position of the first relevant chunk, meaning one from the right company that contains all the expected keywords.
-
-- **Recall@k** is the share of questions with a relevant chunk in the top k. If this is low, the LLM never sees the answer, and no prompt can make up for that. With one target per question, this is sometimes called *hit rate*.
-- **MRR** (mean reciprocal rank) rewards ranking the relevant chunk highly. A first place scores 1, a second place scores 1/2, a third place scores 1/3, and a miss scores 0.
+Passages are third-party text, so the prompt tells the model to ignore any instructions inside them.
 
 ## Results
 
-> **Read this first.** These are real outputs, but they come from **two small fictional documents and 10 questions written by the author of those documents**. They show that the pipeline and its measurements work. They don't show how well either strategy or index works on real policies. To get meaningful numbers, follow [Using real documents](#using-real-documents) and rerun both commands.
+> **Read this first.** There are two question sets, reported separately:
+>
+> - **Tuning set** (31 answerable, 15 unanswerable): the 0.6 refusal threshold was tuned on these questions **only**, so its scores here are optimistic.
+> - **Held-out set** (20 answerable, 10 unanswerable, in `eval/holdout/`): written after every setting was fixed, scored once on that frozen configuration, and never tuned on. It covers only the default strategy, so it can't sway a choice between strategies.
+>
+> Both are small and were written for this project by the same author, so one answerable question moves a score by 3–5 points. A passage counts as relevant if it comes from the right document and contains an expected phrase. That test favours longer chunks and can't tell whether a passage truly answers the question. Measured on an Apple M1 Pro.
 
-Measured on an Apple M1 Pro with Python 3.11.
+### Retrieval
 
-### Chunking evaluation (`make eval`)
+| Question set | Strategy | Chunks | Mean chars | Recall@1 | Recall@3 | Recall@5 | Recall@10 | MRR |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Tuning | section | 1581 | 792 | 0.58 | 0.65 | 0.65 | 0.68 | 0.618 |
+| Held-out | section | 1581 | 792 | 0.60 | 0.75 | 0.85 | 0.90 | 0.692 |
 
-| Strategy | Chunks | Recall@1 | Recall@3 | Recall@5 | Recall@10 | MRR |
-| --- | --- | --- | --- | --- | --- | --- |
-| fixed | 10 | 0.90 | 0.90 | 1.00 | 1.00 | 0.925 |
-| section | 23 | 0.70 | 0.90 | 1.00 | 1.00 | 0.803 |
+Held-out retrieval scores higher than tuning. That isn't evidence the system improved, since no setting was tuned for retrieval and the two sets ask about different facts. It shows how much these scores vary with the questions chosen.
 
-**This doesn't show that fixed-size chunking is better.** Fixed chunks average 147 words and section chunks average 57, and the larger a chunk is, the more likely it is to contain a keyword. The keyword test also can't see that a large chunk gives the LLM more irrelevant text. Recall@10 is of little use here too, because the fixed index holds only 10 chunks, so its top 10 is everything. A fairer comparison would use a larger corpus with similar chunk sizes.
+### Refusals and answers
 
-### FAISS benchmark (`make bench`)
+| Measure | Tuning | Held-out |
+| --- | --- | --- |
+| Answerable questions that pass the 0.6 threshold | 100% | 100% |
+| Unanswerable questions the threshold refuses | 53% | 50% |
+| Unanswerable questions refused once the model also has a say | 100% | 100% |
+| Answerable questions the model answers | 81% | 70% |
+| ...with a valid citation | 68% | 55% |
+| ...citing a passage that contains the expected text | 48% | 45% |
 
-Run on the 23 section-aware chunks, using the 10 evaluation questions as queries.
+The threshold, the one setting tuned on these questions, holds up on the held-out set. It catches off-topic questions, but not ones that name a company, such as "How many vacation days do Zoom employees get?". Those score as high as real questions, so the model has to decline them, and on both sets it did.
+
+The weak number is the last one, which stays below 50% on both sets. Retrieval is part of it on the tuning set, where `section` has the expected passage in its top 5 only 65% of the time. But the held-out set finds it 85% of the time and still scores 45%, so the larger limit there is the model: `llama3.2` wrongly refused 6 of 31 tuning questions and 6 of 20 held-out ones, and it can answer from the wrong sentence of a passage. A citation also only shows that the model named a passage, not that the passage supports the claim.
+
+### Chunking comparison (`make compare`, tuning set only)
+
+The keyword test favours longer chunks, and at the default size limit fixed chunks are about 25% longer than section chunks. So this also scores fixed chunks with their size limit set to match the section mean, keeping the same 150-character overlap.
+
+| Run | Size limit | Chunks | Mean chars | Recall@1 | Recall@3 | Recall@5 | Recall@10 | MRR |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| section | 1000 | 1581 | 792 | 0.58 | 0.65 | 0.65 | 0.68 | 0.618 |
+| fixed, default size | 1000 | 1367 | 989 | 0.52 | 0.71 | 0.74 | 0.81 | 0.614 |
+| fixed, matched length | 802 | 1789 | 792 | 0.42 | 0.61 | 0.61 | 0.71 | 0.518 |
+
+`fixed` leads at the top 5 only at its longer default size. At matched length it falls behind `section` everywhere except Recall@10, so most of that lead appears to come from chunk length. `section` remains the default, and the choice is still open. The difference between the matched runs at the top 5 is about one question, so this leans towards `section` without proving it.
+
+### Vector index (`make bench`)
+
+Run on the 1,581 `section` vectors, using the 31 tuning questions as queries, on one thread.
 
 | Index | efSearch | Recall@10 vs flat | Query latency (ms) | Build time (ms) |
 | --- | --- | --- | --- | --- |
-| Flat | - | 1.000 | 0.0027 | 0.65 |
-| HNSW | 10 | 1.000 | 0.0037 | 0.88 |
-| HNSW | 20 | 1.000 | 0.0038 | 0.88 |
-| HNSW | 50 | 1.000 | 0.0040 | 0.88 |
-| HNSW | 100 | 1.000 | 0.0041 | 0.88 |
-| HNSW | 200 | 1.000 | 0.0041 | 0.88 |
+| Flat | - | 1.000 | 0.0515 | 3.27 |
+| HNSW | 10 | 0.939 | 0.0093 | 144.96 |
+| HNSW | 20 | 0.977 | 0.0136 | 144.96 |
+| HNSW | 50 | 0.997 | 0.0270 | 144.96 |
+| HNSW | 100 | 1.000 | 0.0514 | 144.96 |
+| HNSW | 200 | 1.000 | 0.1045 | 144.96 |
 
-**At this size, HNSW has no chance to show its value.** Every setting reaches perfect recall because 23 vectors is too few for an approximate search to miss anything, and exact search is faster because it has almost no work to do. The trade-off HNSW exists for usually appears at many thousands of vectors or more. Latency differences this small are also close to measurement noise.
+![Recall against query latency for each efSearch value, with flat search reaching full recall at about the same latency as HNSW at efSearch 100](docs/benchmark.png)
 
-### A known failure
+## Design decisions
 
-Asking "Will Tunely sell my data?" returns "Not found in the documents", even though the policy says "We never sell your personal information". Two separate things go wrong:
+### Keeping HNSW at `efSearch` 100
 
-1. **Retrieval is weak here.** The correct chunk ranks only 5th, behind generic chunks such as the document's introduction and contact details. For the wording "Does Tunely sell data?", it drops out of the top 5.
-2. **The model abstains anyway.** Even with that chunk in its context, `llama3.2` still says the answer isn't there.
+At about 1,600 vectors, HNSW gives no speed advantage over exact search. At `efSearch` 100 both take about 0.05 ms per query and both reach full recall, and exact search builds far faster. We keep HNSW at 100 anyway: Chroma's index is HNSW, full recall is the safe setting, and the search time is tiny next to the model's seconds. Lowering `efSearch` to 50 would be twice as fast, but saving 0.02 ms isn't worth any lost recall here.
 
-The evaluation counts the similar test question as a success at k=5, because recall@k can't see the second problem. So a good retrieval score doesn't guarantee a good answer.
+HNSW starts to matter as the corpus grows, because exact search slows in proportion to the number of vectors while HNSW barely slows:
 
-## Limitations and next steps
+| Vectors | Flat (ms) | HNSW, `efSearch` 100 (ms) | HNSW recall@10 | HNSW build (s) |
+| --- | --- | --- | --- | --- |
+| 1,581 (real) | 0.051 | 0.056 | 0.999 | 0.1 |
+| 10,000 | 0.343 | 0.100 | 1.000 | 0.3 |
+| 100,000 | 3.296 | 0.149 | 1.000 | 5.2 |
+| 500,000 | 16.320 | 0.141 | 0.998 | 23.9 |
 
-**Limitations**
+Only the first row is the real corpus. The larger ones are synthetic, made by resampling our vectors with a little noise, with 200 more made the same way as queries, on one search thread. That data is clustered around real vectors and may be easier than a genuinely larger corpus, so read them as the trend and not as a promise. HNSW overtakes exact search by about 10,000 vectors, roughly 6 times this corpus, or around 60 companies at the current size. Even at 500,000 vectors exact search takes just 16 ms, so for one local user the speed only clearly matters at millions of vectors, or under many simultaneous queries.
 
-- The heading detection for `.txt` and `.pdf` files relies on simple patterns: Markdown, numbered, ALL CAPS and standalone Title Case lines. A sentence-case heading is treated as body text, and a PDF's page headers and footers aren't removed.
-- Scanned PDFs have no text to extract, so they're skipped with a warning.
-- Keyword matching is only a stand-in for true relevance, and it favours longer chunks.
-- Citations are checked against the retrieved chunks, but nothing verifies that a cited passage really supports the claim.
-- A small local model can abstain wrongly, as shown above, and can also make mistakes. Answers aren't legal advice.
+## Limitations
 
-**Next steps**
+- **Small, local model.** `llama3.2` sometimes refuses when the answer is in front of it, and once repeated itself until the 512-token reply cap cut it off.
+- **Keyword relevance.** The evaluation can't see whether a passage really answers a question.
+- **Unverified citations.** Nothing checks that a cited passage supports the claim.
+- **Replaced services.** The source archives have no usable documents for Uber and Duolingo, and no real privacy policy for Airbnb, so Lyft, Coursera and PayPal are in the corpus instead.
+- **Older Strava text.** Strava comes from a 2024-07-15 snapshot, while the others are current to the download.
+- **Page furniture.** Strava's documents and Zoom's terms begin with site navigation text, which ingestion doesn't remove from Markdown files.
+- **Repeated text.** Reddit's terms contain two regional versions of the agreement, so results can show near-identical passages.
 
-- **Hybrid search:** combine vector search with keyword search (BM25). Legal text relies on exact terms such as "arbitration", which keyword search finds reliably.
-- **Reranking:** retrieve 20 or more candidates, then have a cross-encoder model reorder them. This targets the failure above, where generic chunks outrank the correct one.
-- **LLM judge:** have a second model grade each answer for faithfulness and completeness, so that answer quality is measured as well as retrieval.
+## Privacy
+
+Everything runs locally. Chroma's telemetry is off, `make app` turns off Streamlit's, and both services listen only on localhost. The embedding model is downloaded from Hugging Face on first use; once it's cached, it loads without contacting them.
 
 ## Stack
 
-Python 3.11, uv, BeautifulSoup, pypdf, sentence-transformers, Chroma, FAISS (benchmark only), Ollama, Streamlit and pytest. Chroma's telemetry is turned off, and `make app` also turns off Streamlit's telemetry and listens only on localhost. Your documents and questions stay on your machine. The Hugging Face library does contact its servers to check for model updates when it loads the embedding model. Once the model is downloaded, set `HF_HUB_OFFLINE=1` to stop that.
+Python 3.14, uv, BeautifulSoup, pypdf, sentence-transformers, Chroma, FAISS (benchmark only), Ollama, FastAPI, Streamlit, Typer, structlog, pytest, Ruff and ty.

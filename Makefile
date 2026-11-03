@@ -1,22 +1,45 @@
-.PHONY: install index eval bench app test
+.PHONY: setup lint format typecheck test data index eval eval-holdout compare bench api app
 
-install:
-	uv sync
+setup:
+	bash scripts/setup.sh
 
-index:
-	uv run python scripts/build_index.py --strategy fixed
-	uv run python scripts/build_index.py --strategy section
+lint:
+	uv run ruff check .
+	uv run ruff format --check .
 
-eval:
-	uv run python -m fine_print.evaluate
+format:
+	uv run ruff check --fix .
+	uv run ruff format .
 
-bench:
-	uv run python scripts/benchmark_index.py --strategy section
-
-# Bound to localhost so the app is not visible to others on your network.
-# The file watcher is off because it trips over torch's internals on every reload.
-app:
-	uv run streamlit run app.py --server.address localhost --server.fileWatcherType none --browser.gatherUsageStats false
+typecheck:
+	uv run ty check
 
 test:
-	uv run pytest -q
+	uv run pytest --cov --cov-report=term-missing
+
+data:
+	uv run python scripts/download_data.py
+
+index:
+	uv run fine-print index
+
+eval:
+	uv run fine-print eval
+
+# Reports on a frozen configuration. Never tune anything from its results.
+eval-holdout:
+	uv run fine-print eval --holdout --answers
+
+compare:
+	uv run python scripts/compare_chunking.py
+
+bench:
+	uv run fine-print bench
+
+# Bound to localhost so the services are not visible to others on your network.
+api:
+	uv run uvicorn fine_print.api:app --host 127.0.0.1 --port 8000
+
+# The file watcher is off because it trips over torch's internals on every reload.
+app:
+	uv run streamlit run app/streamlit_app.py --server.address localhost --server.fileWatcherType none --browser.gatherUsageStats false
