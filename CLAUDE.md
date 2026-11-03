@@ -15,13 +15,11 @@ fine-print is a local, citation-first RAG system over the Terms of Service and p
 
 ## Status: v2 rebuild in progress
 
-The `v2-rebuild` branch replaces the v1 prototype with a fresh scaffold.
+The `v2-rebuild` branch replaces the v1 prototype, which is kept at the `v1-simple` tag.
 
-- **Done:** settings, domain models, logging, the document download, ingestion (`ingest.py`), chunking (`chunking.py`), and the CLI with a working `fine-print ingest`.
-- **Left:** embedding, the vector store, retrieval and the Ollama answer step, evaluation, the index benchmark, the Streamlit app and FastAPI service. `app/`, `docs/` and `eval/` are empty.
-- `fine-print index`, `ask`, `eval` and `bench` exit with code 1 and a "not implemented yet" message. Replace each stub in `cli.py` as its stage is built.
-- `config.py` comments and paths refer to modules and files that are still to come (`store.py`, `eval/questions.jsonl`, `eval/privacyqa_*`).
-- The v1 implementation is the reference for the remaining pieces. Read it with `git show v1-simple:src/fine_print/<module>.py`. v1's config and layout differ from v2 (its chunk sizes are in words, for example), so port ideas rather than copying files.
+- **Done:** every stage: download, ingest, chunk, index, RAG, eval, benchmark, API and UI.
+- **Not built:** the PrivacyQA evaluation. The `privacyqa_*` settings in `config.py` and the `eval/privacyqa_` pre-commit exclusion are placeholders for it.
+- **Undecided:** `default_strategy` is `section`, although `fixed` has better recall at the top 5 (see the README's results).
 
 ## Commands
 
@@ -39,13 +37,19 @@ uv run fine-print ingest                 # parse and chunk data/raw/, and report
 uv run pre-commit install                # enable the git hooks
 ```
 
-`make index`, `eval`, `bench`, `api` and `app` run the later pipeline stages.
+`make index`, `eval`, `bench`, `api` and `app` run the later stages. `make app` needs `make api` running, and answering needs Ollama. `uv run fine-print eval --answers` also measures the real model, which takes about a minute.
+
+Tests need no model, Ollama or `data/raw/`: Ollama and the API are mocked with `respx`, the embedding model is faked, and Chroma runs for real in a temporary folder. Because mocks can't show how the real model behaves, also run real questions after changing `rag.py`.
 
 CI runs `uv sync --locked`, `ruff check`, `ruff format --check`, `ty check` and the coverage test command, so update `uv.lock` along with any dependency change.
 
 ## Architecture
 
-The pipeline: policy files → `Document` (text normalized to Markdown with `#` headings) → `Chunk` (`fixed` or `section` strategy) → BGE embeddings → Chroma HNSW index → retrieval → Ollama prompt → `Answer` with `Citation`s. The stages up to `Chunk` exist.
+The pipeline: policy files → `Document` (text normalized to Markdown with `#` headings) → `Chunk` (`fixed` or `section` strategy) → BGE embeddings → Chroma HNSW index → retrieval → Ollama prompt → `Answer` with `Citation`s. The Streamlit app is a client of the FastAPI service, and doesn't import the pipeline.
+
+- **Lazy imports.** `cli.py` imports the embedding, store and benchmark modules inside its commands, because torch makes them slow to load. Don't move them to the top of the file.
+- **Tuned from `make eval`.** `min_similarity` is 0.6 because answerable questions score above 0.69 and off-topic ones below 0.55. Questions that name a company score as high as real ones, so only the model can refuse those. Re-measure if the corpus or embedding model changes.
+- **Reply cap.** `ollama_num_predict` exists because `llama3.2` can repeat itself until the read timeout. Keep it below `RESERVED_TOKENS` in `rag.py`.
 
 - **Headings.** The raw files mix ATX, setext, bold-only lines and escaped numbering (`1\. Title`). `normalize_headings` rewrites them all as `#` lines, and `chunking.py` relies only on those. Title Case detection applies to plain text and PDFs only, because in Markdown it picks up navigation links.
 - **Chunk windows.** Spans break at whitespace, so consecutive chunks share between `overlap` and `2 * overlap` characters rather than exactly `overlap`. `section` chunks hold body text only and never cross a section; `fixed` chunks can, and take the title of the section contributing the most characters.
