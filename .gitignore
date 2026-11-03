@@ -2,5 +2,10 @@
 __pycache__/
 *.pyc
 .pytest_cache/
-chroma_db/
+.ruff_cache/
+.coverage
+coverage.xml
+.env
 .DS_Store
+data/external/
+chroma_db/

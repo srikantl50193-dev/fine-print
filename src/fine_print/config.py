@@ -1,60 +1,71 @@
-"""All project settings live here, so experiments only ever touch one file."""
+"""All settings in one place, overridable with FINE_PRINT_* environment variables or .env."""
 
-import os
+from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
-# --- Paths -------------------------------------------------------------------
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+type Strategy = Literal["fixed", "section"]
+
+STRATEGIES: tuple[Strategy, ...] = ("fixed", "section")
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
-SAMPLE_DATA_DIR = PROJECT_ROOT / "data" / "samples"
-CHROMA_DIR = PROJECT_ROOT / "chroma_db"
-EVAL_QUESTIONS_PATH = PROJECT_ROOT / "eval" / "questions.jsonl"
 
-# --- Chunking ----------------------------------------------------------------
-# Sizes are counted in words. 150 words is roughly 200 tokens, comfortably below
-# the 512 tokens the embedding model reads before it silently truncates.
-CHUNK_SIZE_WORDS = 150
-CHUNK_OVERLAP_WORDS = 30
-STRATEGIES = ("fixed", "section")
-DEFAULT_STRATEGY = "section"
 
-# --- Embeddings --------------------------------------------------------------
-EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
-EMBEDDING_BATCH_SIZE = 32
-# BGE models were trained with this prefix on queries (not on documents).
-BGE_QUERY_PREFIX = "Represent this sentence for searching relevant passages: "
+class Settings(BaseSettings):
+    """Application settings. Defaults work out of the box on a local machine."""
 
-# --- Vector store ------------------------------------------------------------
-COLLECTION_PREFIX = "fine_print"
-CHROMA_HNSW_METADATA = {
-    # How "closeness" is measured. On normalized vectors, cosine is the angle
-    # between them, and Chroma reports distance = 1 - cosine similarity.
-    "hnsw:space": "cosine",
-    # Links per node in the graph. More links improve recall but use more memory.
-    "hnsw:M": 16,
-    # Candidates considered while inserting a node. Higher builds a better graph,
-    # but builds more slowly. It has no effect on query time.
-    "hnsw:construction_ef": 200,
-    # Candidates considered while answering a query. Higher improves recall, but
-    # each query is slower. This is the main speed/accuracy dial at query time.
-    "hnsw:search_ef": 100,
-}
+    model_config = SettingsConfigDict(env_prefix="FINE_PRINT_", env_file=".env", extra="ignore")
 
-# --- Retrieval and generation ------------------------------------------------
-TOP_K = 5
-OLLAMA_URL = os.getenv("FINE_PRINT_OLLAMA_URL", "http://localhost:11434")
-OLLAMA_MODEL = os.getenv("FINE_PRINT_OLLAMA_MODEL", "llama3.2")
-OLLAMA_TIMEOUT_SECONDS = 180
-# Ollama silently drops prompt text past this many tokens, so it must fit TOP_K chunks.
-OLLAMA_NUM_CTX = 4096
-NOT_FOUND_MESSAGE = "Not found in the documents"
+    # Paths
+    raw_dir: Path = PROJECT_ROOT / "data" / "raw"
+    samples_dir: Path = PROJECT_ROOT / "data" / "samples"
+    external_dir: Path = PROJECT_ROOT / "data" / "external"
+    chroma_dir: Path = PROJECT_ROOT / "chroma_db"
+    questions_path: Path = PROJECT_ROOT / "eval" / "questions.jsonl"
+    privacyqa_path: Path = PROJECT_ROOT / "eval" / "privacyqa_sample.jsonl"
+    privacyqa_policies_path: Path = PROJECT_ROOT / "eval" / "privacyqa_policies.json"
+    docs_dir: Path = PROJECT_ROOT / "docs"
 
-# --- Evaluation --------------------------------------------------------------
-EVAL_K_VALUES = (1, 3, 5, 10)
+    # Chunking. Sizes are in characters: 1000 characters is about 250 tokens, well below
+    # the 512 tokens the embedding model reads before it silently truncates.
+    chunk_size: int = Field(default=1000, gt=0)
+    chunk_overlap: int = Field(default=150, ge=0)
+    default_strategy: Strategy = "section"
 
-# --- FAISS benchmark ---------------------------------------------------------
-BENCH_K = 10
-BENCH_HNSW_M = 16
-BENCH_EF_CONSTRUCTION = 200
-BENCH_EF_SEARCH_VALUES = (10, 20, 50, 100, 200)
-BENCH_LATENCY_REPEATS = 50
+    # Embeddings. The prefix comes from the BGE model card; passages take no prefix.
+    embedding_model: str = "BAAI/bge-small-en-v1.5"
+    embedding_batch_size: int = Field(default=32, gt=0)
+    query_prefix: str = "Represent this sentence for searching relevant passages: "
+
+    # HNSW index parameters; store.py explains what each one does.
+    hnsw_max_neighbors: int = Field(default=16, gt=1)
+    hnsw_ef_construction: int = Field(default=200, gt=0)
+    hnsw_ef_search: int = Field(default=100, gt=0)
+
+    # Retrieval
+    top_k: int = Field(default=5, gt=0)
+    min_similarity: float = Field(default=0.5, ge=-1, le=1)
+
+    # LLM
+    ollama_url: str = "http://localhost:11434"
+    ollama_model: str = "llama3.2"
+    ollama_connect_timeout: float = Field(default=5.0, gt=0)
+    ollama_read_timeout: float = Field(default=180.0, gt=0)
+    ollama_max_attempts: int = Field(default=3, gt=0)
+    # Ollama silently drops prompt text beyond this many tokens.
+    ollama_num_ctx: int = Field(default=4096, gt=0)
+
+    # Services
+    api_url: str = "http://localhost:8000"
+
+    # Logging
+    log_level: str = "INFO"
+    log_json: bool = False
+
+
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
+    """Return the process-wide settings, reading the environment only once."""
+    return Settings()

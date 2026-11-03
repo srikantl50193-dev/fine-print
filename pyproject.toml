@@ -1,29 +1,101 @@
 [project]
 name = "fine-print"
-version = "0.1.0"
-description = "Local, free RAG over Terms of Service and privacy policies."
+version = "0.2.0"
+description = "Local, citation-first RAG over the Terms of Service and privacy policies of popular apps."
 readme = "README.md"
-requires-python = ">=3.11,<3.12"
+requires-python = ">=3.14,<3.15"
+authors = [{ name = "Srikant Lakshminarayan" }]
+keywords = ["rag", "privacy", "terms-of-service", "chroma", "ollama"]
 dependencies = [
-    "beautifulsoup4>=4.12",
-    "chromadb>=1.0",
-    "faiss-cpu>=1.8",
-    "numpy>=1.26",
-    "pypdf>=4.0",
-    "requests>=2.31",
-    "sentence-transformers>=3.0",
-    "streamlit>=1.40",
+    "beautifulsoup4>=4.15.0",
+    "chromadb>=1.5.9",
+    "fastapi>=0.162.0",
+    "faiss-cpu>=1.15.1",
+    "httpx>=0.28.1",
+    "matplotlib>=3.11.2",
+    "numpy>=2.5.4",
+    "pydantic>=2.14.2",
+    "pydantic-settings>=2.16.2",
+    "pypdf>=6.21.4",
+    "sentence-transformers>=6.2.0",
+    "streamlit>=1.66.1",
+    "structlog>=26.1.0",
+    "tenacity>=9.2.1",
+    "torch>=2.15.0",
+    "typer>=0.27.3",
+    "uvicorn>=0.54.0",
 ]
 
+[project.scripts]
+fine-print = "fine_print.cli:app"
+
 [dependency-groups]
-dev = ["pytest>=8.0"]
+dev = [
+    "pre-commit>=4.7.0",
+    "pytest>=9.2.0",
+    "pytest-cov>=7.1.0",
+    "respx>=0.23.1",
+    "ruff>=0.17.3",
+    "ty>=0.0.96",
+]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.33.0"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/fine_print"]
 
+# Linux gets the CPU-only torch build: the default one pulls in gigabytes of CUDA
+# libraries that a Docker image or CI runner would never use.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "RUF", "PL", "D"]
+ignore = [
+    "D203", # Conflicts with D211 (no blank line before a class docstring).
+    "D213", # Conflicts with D212 (summary on the first docstring line).
+    "D105", # Dunder methods are self-explanatory.
+    "D107", # __init__ is documented on its class.
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Docstrings are required for public APIs in src/, not for tests or one-off scripts.
+"tests/**" = ["D", "PLR2004"]
+"scripts/**" = ["D102", "D103"]
+"app/**" = ["D103"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.pylint]
+max-args = 7
+
+[tool.ty.environment]
+python-version = "3.14"
+
+[tool.ty.src]
+include = ["src", "tests", "scripts", "app"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "--strict-markers"
+
+[tool.coverage.run]
+source = ["fine_print"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
