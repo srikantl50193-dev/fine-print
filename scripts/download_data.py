@@ -126,35 +126,35 @@ def clone(source: Source, external_dir: Path) -> tuple[Path, str]:
     return target, f"{ref} ({commit_date})"
 
 
-def find_document(root: Path, company: str, filename: str) -> Path | None:
-    """Return the service's file, ignoring stubs too small to be a real policy."""
-    for folder in SERVICES[company]:
-        path = root / folder / filename
-        if path.is_file() and path.stat().st_size >= MIN_DOCUMENT_BYTES:
-            return path
+def find_document(root: Path, location: DocumentLocation) -> Path | None:
+    """Return the document's file, ignoring stubs too small to be a real policy."""
+    path = root / location.folder / location.filename
+    if path.is_file() and path.stat().st_size >= MIN_DOCUMENT_BYTES:
+        return path
     return None
 
 
 def copy_documents(clones: dict[str, tuple[Path, str]], raw_dir: Path) -> dict[str, dict[str, str]]:
-    """Copy each document from the first source that has it, and record its origin."""
+    """Copy each document from its named source, and record its origin."""
     manifest: dict[str, dict[str, str]] = {}
-    for company in SERVICES:
-        for doc_type, filename in DOC_TYPES.items():
-            for source_name, (root, ref) in clones.items():
-                if path := find_document(root, company, filename):
-                    target = raw_dir / f"{company}_{doc_type}.md"
-                    shutil.copyfile(path, target)
-                    manifest[target.name] = {
-                        "source": source_name,
-                        "ref": ref,
-                        "path": str(path.relative_to(root)),
-                    }
-                    break
+    for company, locations in DOCUMENTS.items():
+        for doc_type, location in locations.items():
+            if location.source not in clones:
+                continue
+            root, ref = clones[location.source]
+            if path := find_document(root, location):
+                target = raw_dir / f"{company}_{doc_type}.md"
+                shutil.copyfile(path, target)
+                manifest[target.name] = {
+                    "source": location.source,
+                    "ref": ref,
+                    "path": str(path.relative_to(root)),
+                }
     return manifest
 
 
 def print_report(manifest: dict[str, dict[str, str]]) -> None:
-    for company in SERVICES:
+    for company in DOCUMENTS:
         found = [
             f"{doc_type} [{manifest[f'{company}_{doc_type}.md']['source']}]"
             for doc_type in DOC_TYPES
