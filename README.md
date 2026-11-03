@@ -38,7 +38,9 @@ make app   # http://localhost:8501
 | `make setup` | Create or repair `.venv` from `uv.lock` |
 | `make data` | Download the policy documents |
 | `make index` | Build the vector index for both chunking strategies |
-| `make eval` | Measure retrieval quality and the refusal threshold |
+| `make eval` | Measure retrieval quality and the refusal threshold on the tuning set |
+| `make eval-holdout` | Report on the held-out set, including the model. Never tune from this |
+| `make compare` | Compare chunking strategies at matched chunk length, on the tuning set |
 | `make bench` | Compare vector index types, and save `docs/benchmark.png` |
 | `make api` | Start the API on `127.0.0.1:8000` |
 | `make app` | Start the web UI on `localhost:8501` |
@@ -67,35 +69,52 @@ Passages are third-party text, so the prompt tells the model to ignore any instr
 
 ## Results
 
-> **Read this first.** These come from 31 answerable and 15 unanswerable questions written for this project, so they're a small sample, and the 0.6 threshold was chosen on the same questions. A passage counts as relevant if it comes from the right document and contains an expected phrase. That test favours longer chunks and can't tell whether a passage truly answers the question. Measured on an Apple M1 Pro.
+> **Read this first.** There are two question sets, reported separately:
+>
+> - **Tuning set** (31 answerable, 15 unanswerable): the 0.6 refusal threshold was tuned on these questions **only**, so its scores here are optimistic.
+> - **Held-out set** (20 answerable, 10 unanswerable, in `eval/holdout/`): written after every setting was fixed, scored once on that frozen configuration, and never tuned on. It covers only the default strategy, so it can't sway a choice between strategies.
+>
+> Both are small and were written for this project by the same author, so one answerable question moves a score by 3–5 points. A passage counts as relevant if it comes from the right document and contains an expected phrase. That test favours longer chunks and can't tell whether a passage truly answers the question. Measured on an Apple M1 Pro.
 
-### Retrieval (`make eval`)
+### Retrieval
 
-| Strategy | Chunks | Mean chars | Recall@1 | Recall@3 | Recall@5 | Recall@10 | MRR |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| fixed | 1367 | 989 | 0.52 | 0.71 | 0.74 | 0.81 | 0.614 |
-| section | 1581 | 792 | 0.58 | 0.65 | 0.65 | 0.68 | 0.618 |
+| Question set | Strategy | Chunks | Mean chars | Recall@1 | Recall@3 | Recall@5 | Recall@10 | MRR |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Tuning | section | 1581 | 792 | 0.58 | 0.65 | 0.65 | 0.68 | 0.618 |
+| Held-out | section | 1581 | 792 | 0.60 | 0.75 | 0.85 | 0.90 | 0.692 |
 
-`section` is the default. It ranks slightly better at first place, but `fixed` finds more of the answers lower down, including at the top 5 passages the model actually sees. Fixed chunks are about 25% longer, which this test favours, so this doesn't settle which is better.
+Held-out retrieval scores higher than tuning. That isn't evidence the system improved, since no setting was tuned for retrieval and the two sets ask about different facts. It shows how much these scores vary with the questions chosen.
 
-### Refusals and answers (`fine-print eval --answers`)
+### Refusals and answers
 
-| Measure | Result |
-| --- | --- |
-| Answerable questions that pass the 0.6 threshold | 100% |
-| Unanswerable questions the threshold refuses | 53% |
-| Unanswerable questions refused once the model also has a say | 100% |
-| Answerable questions the model answers | 81% |
-| ...with a valid citation | 68% |
-| ...citing a passage that contains the expected text | 48% |
+| Measure | Tuning | Held-out |
+| --- | --- | --- |
+| Answerable questions that pass the 0.6 threshold | 100% | 100% |
+| Unanswerable questions the threshold refuses | 53% | 50% |
+| Unanswerable questions refused once the model also has a say | 100% | 100% |
+| Answerable questions the model answers | 81% | 70% |
+| ...with a valid citation | 68% | 55% |
+| ...citing a passage that contains the expected text | 48% | 45% |
 
-The threshold catches off-topic questions, but not ones that name a company, such as "How many vacation days do Zoom employees get?". Those score as high as real questions, so the model has to decline them, and on this set it did.
+The threshold, the one setting tuned on these questions, holds up on the held-out set. It catches off-topic questions, but not ones that name a company, such as "How many vacation days do Zoom employees get?". Those score as high as real questions, so the model has to decline them, and on both sets it did.
 
-The weak number is the last one. Part of the gap is retrieval, because `section` has the expected passage in its top 5 only 65% of the time. The rest is the model: `llama3.2` wrongly refused 6 answerable questions, and it can answer from the wrong sentence of a passage. A citation also only shows that the model named a passage, not that the passage supports the claim.
+The weak number is the last one, which stays below 50% on both sets. Retrieval is part of it on the tuning set, where `section` has the expected passage in its top 5 only 65% of the time. But the held-out set finds it 85% of the time and still scores 45%, so the larger limit there is the model: `llama3.2` wrongly refused 6 of 31 tuning questions and 6 of 20 held-out ones, and it can answer from the wrong sentence of a passage. A citation also only shows that the model named a passage, not that the passage supports the claim.
+
+### Chunking comparison (`make compare`, tuning set only)
+
+The keyword test favours longer chunks, and at the default size limit fixed chunks are about 25% longer than section chunks. So this also scores fixed chunks with their size limit set to match the section mean, keeping the same 150-character overlap.
+
+| Run | Size limit | Chunks | Mean chars | Recall@1 | Recall@3 | Recall@5 | Recall@10 | MRR |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| section | 1000 | 1581 | 792 | 0.58 | 0.65 | 0.65 | 0.68 | 0.618 |
+| fixed, default size | 1000 | 1367 | 989 | 0.52 | 0.71 | 0.74 | 0.81 | 0.614 |
+| fixed, matched length | 802 | 1789 | 792 | 0.42 | 0.61 | 0.61 | 0.71 | 0.518 |
+
+`fixed` leads at the top 5 only at its longer default size. At matched length it falls behind `section` everywhere except Recall@10, so most of that lead appears to come from chunk length. `section` remains the default, and the choice is still open. The difference between the matched runs at the top 5 is about one question, so this leans towards `section` without proving it.
 
 ### Vector index (`make bench`)
 
-Run on the 1,581 `section` vectors, using the 31 answerable questions as queries, on one thread.
+Run on the 1,581 `section` vectors, using the 31 tuning questions as queries, on one thread.
 
 | Index | efSearch | Recall@10 vs flat | Query latency (ms) | Build time (ms) |
 | --- | --- | --- | --- | --- |
@@ -108,7 +127,22 @@ Run on the 1,581 `section` vectors, using the 31 answerable questions as queries
 
 ![Recall against query latency for each efSearch value, with flat search reaching full recall at about the same latency as HNSW at efSearch 100](docs/benchmark.png)
 
-At this size, exact search is perfectly usable: every option is far below a millisecond, while the model takes seconds. The Chroma index uses `efSearch` 100, which here matches exact search on both recall and speed. HNSW's advantage should grow with a much larger corpus.
+## Design decisions
+
+### Keeping HNSW at `efSearch` 100
+
+At about 1,600 vectors, HNSW gives no speed advantage over exact search. At `efSearch` 100 both take about 0.05 ms per query and both reach full recall, and exact search builds far faster. We keep HNSW at 100 anyway: Chroma's index is HNSW, full recall is the safe setting, and the search time is tiny next to the model's seconds. Lowering `efSearch` to 50 would be twice as fast, but saving 0.02 ms isn't worth any lost recall here.
+
+HNSW starts to matter as the corpus grows, because exact search slows in proportion to the number of vectors while HNSW barely slows:
+
+| Vectors | Flat (ms) | HNSW, `efSearch` 100 (ms) | HNSW recall@10 | HNSW build (s) |
+| --- | --- | --- | --- | --- |
+| 1,581 (real) | 0.051 | 0.056 | 0.999 | 0.1 |
+| 10,000 | 0.343 | 0.100 | 1.000 | 0.3 |
+| 100,000 | 3.296 | 0.149 | 1.000 | 5.2 |
+| 500,000 | 16.320 | 0.141 | 0.998 | 23.9 |
+
+Only the first row is the real corpus. The larger ones are synthetic, made by resampling our vectors with a little noise, with 200 more made the same way as queries, on one search thread. That data is clustered around real vectors and may be easier than a genuinely larger corpus, so read them as the trend and not as a promise. HNSW overtakes exact search by about 10,000 vectors, roughly 6 times this corpus, or around 60 companies at the current size. Even at 500,000 vectors exact search takes just 16 ms, so for one local user the speed only clearly matters at millions of vectors, or under many simultaneous queries.
 
 ## Limitations
 

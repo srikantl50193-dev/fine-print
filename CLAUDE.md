@@ -40,7 +40,7 @@ uv run fine-print ingest                 # parse and chunk data/raw/, and report
 uv run pre-commit install                # enable the git hooks
 ```
 
-`make index`, `eval`, `bench`, `api` and `app` run the later stages. `make app` needs `make api` running, and answering needs Ollama. `uv run fine-print eval --answers` also measures the real model, which takes about a minute.
+`make index`, `eval`, `compare`, `bench`, `api` and `app` run the later stages. `make eval-holdout` is for reporting only (see Evaluation data). `make app` needs `make api` running, and answering needs Ollama. `uv run fine-print eval --answers` also measures the real model, which takes about a minute.
 
 Tests need no model, Ollama or `data/raw/`: Ollama and the API are mocked with `respx`, the embedding model is faked, and Chroma runs for real in a temporary folder. Because mocks can't show how the real model behaves, also run real questions after changing `rag.py`.
 
