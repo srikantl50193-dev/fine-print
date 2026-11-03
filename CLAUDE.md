@@ -2,6 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Environment
+
+- `.venv` is managed by uv. Run things with `uv run ...` or `.venv/bin/...`, without relying on an activated shell.
+- Add dependencies with `uv add <package>` or `uv add --dev <package>`, which also update `uv.lock`.
+- Never use `pip` or `pip3`. The venv has no pip, and on this machine `pip3` resolves to the global Python, so it would install outside the project.
+- Recreate the environment with `rm -rf .venv && make setup`. `make setup` also creates it on a fresh clone. It stops with the official install command if uv is missing, and doesn't install uv itself.
+
 ## Project
 
 fine-print is a local, citation-first RAG system over the Terms of Service and privacy policies of popular apps. It runs entirely on the user's machine (sentence-transformers, Chroma, Ollama) with no API keys, and it is built from individual parts rather than LangChain or LlamaIndex so that every step stays visible.
@@ -18,20 +25,21 @@ The `v2-rebuild` branch replaces the v1 prototype with a fresh scaffold.
 
 ## Commands
 
-Uses uv, with Python pinned to 3.14. There is no Makefile in v2.
+Python is pinned to 3.14. Every Makefile target goes through uv.
 
 ```bash
-uv sync                                  # install dependencies
-uv run ruff check .                      # lint
-uv run ruff format .                     # format
-uv run ty check                          # type check (src, tests, scripts, app)
-uv run pytest                            # all tests
+make setup                               # create or repair .venv from uv.lock
+make lint                                # ruff check and ruff format --check
+make format                              # apply ruff fixes and formatting
+make typecheck                           # ty check (src, tests, scripts, app)
+make test                                # all tests with coverage, as CI runs them
 uv run pytest tests/test_x.py::test_y    # a single test
-uv run pytest --cov --cov-report=term-missing   # tests with coverage, as CI runs them
-uv run python scripts/download_data.py   # fetch real policies into data/raw/
+make data                                # fetch real policies into data/raw/
 uv run fine-print ingest                 # parse and chunk data/raw/, and report the counts
 uv run pre-commit install                # enable the git hooks
 ```
+
+`make index`, `eval`, `bench`, `api` and `app` run the later pipeline stages.
 
 CI runs `uv sync --locked`, `ruff check`, `ruff format --check`, `ty check` and the coverage test command, so update `uv.lock` along with any dependency change.
 
