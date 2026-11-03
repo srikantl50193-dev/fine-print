@@ -8,4 +8,5 @@ coverage.xml
 .env
 .DS_Store
 data/external/
+data/raw/
 chroma_db/

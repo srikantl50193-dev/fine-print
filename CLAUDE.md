@@ -53,7 +53,7 @@ All settings live in `Settings` in `src/fine_print/config.py`, overridable with 
 
 ## Data
 
-- **`data/raw/`** holds real policies named `<company>_<doctype>.md`, with provenance in `MANIFEST.json`. It is currently neither tracked nor gitignored, so don't add it to a commit without asking.
+- **`data/raw/`** holds real policies named `<company>_<doctype>.md`, with provenance in `MANIFEST.json`. It is gitignored: these are third-party documents, and `scripts/download_data.py` reproduces them.
 - **`data/samples/`** holds fictional companies (Tunely, Ridely), copied to `data/raw/` only when every download fails. Never present results from them as findings about real services. The HTML sample deliberately includes nav, script and style content that ingestion must strip.
 - **`data/external/`** holds gitignored clones of the source repos. `download_data.py` reuses an existing clone without pulling, so delete the clone to get newer documents.
 - **Third-party text stays byte-for-byte as downloaded.** Pre-commit's whitespace fixers exclude `data/raw/`, `data/samples/` and `eval/privacyqa_*`; keep those exclusions when adding hooks.
