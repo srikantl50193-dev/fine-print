@@ -39,6 +39,7 @@ def configure_logging(level: str = "INFO", *, json_output: bool = False) -> None
     for noisy in (
         "httpx",
         "httpcore",
+        "faiss",
         "huggingface_hub",
         "sentence_transformers",
         "chromadb",

@@ -325,18 +325,34 @@ def test_eval_without_questions_fails_cleanly(
     assert "absent.jsonl" in result.stderr
 
 
-@pytest.mark.parametrize(
-    "arguments",
-    [["bench"]],
-)
-def test_unbuilt_commands_say_so_and_fail(arguments: list[str]) -> None:
-    result = runner.invoke(app, arguments)
+def test_bench_prints_the_table_and_saves_the_chart(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FINE_PRINT_DOCS_DIR", str(tmp_path))
+    monkeypatch.setenv("FINE_PRINT_BENCH_LATENCY_REPEATS", "1")
+    rng = np.random.default_rng(1)
+    vectors = rng.normal(size=(50, 8)).astype(np.float32)
+    monkeypatch.setattr(store, "get_all_embeddings", lambda strategy: vectors)
+    monkeypatch.setattr(embed, "embed_query", lambda question: rng.normal(size=8))
+
+    result = runner.invoke(app, ["bench", "--strategy", "fixed"])
+
+    assert result.exit_code == 0, result.stderr
+    assert "50 chunks ('fixed' strategy)" in result.stdout
+    assert "| Flat | - | 1.000 |" in result.stdout
+    assert (tmp_path / "benchmark.png").exists()
+
+
+def test_bench_without_an_index_fails_cleanly(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FINE_PRINT_CHROMA_DIR", str(tmp_path))
+
+    result = runner.invoke(app, ["bench"])
 
     assert result.exit_code == 1
-    assert "not implemented yet" in result.stderr
-    assert f"fine-print {arguments[0]}" in result.stderr
+    assert "make index" in result.stderr
     assert isinstance(result.exception, SystemExit)
-    assert result.stdout == ""
 
 
 def test_help_lists_every_command() -> None:

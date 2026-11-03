@@ -3,6 +3,7 @@
 from collections.abc import Sequence
 from typing import Annotated, Literal, NoReturn
 
+import numpy as np
 import typer
 from pydantic import ValidationError
 
@@ -27,11 +28,6 @@ def _fail(message: str) -> NoReturn:
     """Print an error to stderr and exit with a non-zero code, without a traceback."""
     typer.echo(f"Error: {message}", err=True)
     raise typer.Exit(code=1)
-
-
-def _not_implemented(command: str, missing: str) -> NoReturn:
-    """Exit for a command whose pipeline stage is not built yet."""
-    _fail(f"`fine-print {command}` is not implemented yet (still to build: {missing}).")
 
 
 @app.callback()
@@ -224,6 +220,29 @@ def evaluate(
 
 
 @app.command()
-def bench() -> None:
+def bench(
+    strategy: Annotated[StrategyChoice | None, typer.Option(help="The vectors to use.")] = None,
+) -> None:
     """Compare vector index types on search speed and recall."""
-    _not_implemented("bench", "the index benchmark")
+    # Imported here because these load torch, FAISS and Chroma, which most commands don't need.
+    from fine_print import benchmark  # noqa: PLC0415
+    from fine_print.embed import embed_query  # noqa: PLC0415
+    from fine_print.evaluate import EvalQuestion, load_jsonl  # noqa: PLC0415
+    from fine_print.store import IndexNotBuiltError, get_all_embeddings  # noqa: PLC0415
+
+    settings = get_settings()
+    name = strategy or settings.default_strategy
+    try:
+        vectors = get_all_embeddings(name)
+        questions = load_jsonl(settings.questions_path, EvalQuestion)
+    except (FileNotFoundError, ValidationError, IndexNotBuiltError) as error:
+        _fail(str(error))
+
+    queries = np.stack([embed_query(q.question) for q in questions]).astype(np.float32)
+    rows, k = benchmark.run_benchmark(vectors, queries)
+    typer.echo(f"{len(vectors)} chunks ('{name}' strategy), {len(queries)} queries, k={k}\n")
+    typer.echo(benchmark.format_table(rows, k))
+
+    chart = settings.docs_dir / "benchmark.png"
+    benchmark.save_chart(rows, k, chart)
+    typer.echo(f"\nChart saved to {chart}")

@@ -54,6 +54,11 @@ class Settings(BaseSettings):
     # Evaluation
     eval_k_values: tuple[int, ...] = (1, 3, 5, 10)
 
+    # Benchmark
+    bench_k: int = Field(default=10, gt=0)
+    bench_ef_search_values: tuple[int, ...] = (10, 20, 50, 100, 200)
+    bench_latency_repeats: int = Field(default=20, gt=0)
+
     # LLM
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.2"
