@@ -69,6 +69,8 @@ ignore = [
     "D105", # Dunder methods are self-explanatory.
     "D107", # __init__ is documented on its class.
 ]
+# The en dash is deliberate: it is the separator in citation labels like "[Spotify – Refunds]".
+allowed-confusables = ["–"]
 
 [tool.ruff.lint.per-file-ignores]
 # Docstrings are required for public APIs in src/, not for tests or one-off scripts.

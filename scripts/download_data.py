@@ -39,6 +39,8 @@ MIN_DOCUMENT_BYTES = 8_000
 
 @dataclass(frozen=True)
 class Source:
+    """A git repository of policy documents, laid out as <service>/<document title>.md."""
+
     name: str
     url: str
     tag_prefix: str | None = None  # Clone the newest tag with this prefix, not the default branch.
