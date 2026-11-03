@@ -1,8 +1,8 @@
 """Download real policy documents into data/raw/ as <company>_<doctype>.md.
 
-Sources are tried in order, and the first with a usable copy of a document wins:
+`DOCUMENTS` names the exact source, folder and file of every document, so nothing is guessed:
 
-1. OpenTermsArchive/contrib-versions: maintained and current, so preferred for "latest".
+1. OpenTermsArchive/contrib-versions: maintained and current, so used wherever it has a real copy.
 2. tosdr/tosdr-versions: named by the project brief. Its `main` branch is empty, because
    the data lives on `dataset-tosdr-*` tags, so we clone the newest of those.
 
@@ -19,22 +19,67 @@ from pathlib import Path
 
 from fine_print.config import get_settings
 
-# Service name -> the folder names it may use in a collection.
-SERVICES: dict[str, tuple[str, ...]] = {
-    "spotify": ("Spotify",),
-    "netflix": ("Netflix",),
-    "uber": ("Uber",),
-    "discord": ("Discord",),
-    "reddit": ("Reddit",),
-    "zoom": ("Zoom", "Zoom video communications"),
-    "duolingo": ("Duolingo",),
-    "airbnb": ("Airbnb",),
-    "strava": ("Strava",),
-    "pinterest": ("Pinterest",),
-}
-DOC_TYPES = {"terms": "Terms of Service.md", "privacy": "Privacy Policy.md"}
+CONTRIB = "contrib-versions"
+TOSDR = "tosdr-versions"
+DOC_TYPES = ("terms", "privacy")
 # Smaller files are consent banners or stubs, not real policies.
 MIN_DOCUMENT_BYTES = 8_000
+
+
+@dataclass(frozen=True)
+class DocumentLocation:
+    """Where one document lives: its source, and its exact folder and file in that source."""
+
+    source: str
+    folder: str
+    filename: str
+
+
+# Neither source has Uber or Duolingo. Airbnb's only privacy document is a captured login
+# wall (byte-identical to its "Trackers Policy"). Lyft, Coursera and PayPal take their places.
+# Strava is only in tosdr-versions, whose newest snapshot is older than contrib-versions.
+DOCUMENTS: dict[str, dict[str, DocumentLocation]] = {
+    "spotify": {
+        "terms": DocumentLocation(CONTRIB, "Spotify", "Terms of Service.md"),
+        "privacy": DocumentLocation(CONTRIB, "Spotify", "Privacy Policy.md"),
+    },
+    "netflix": {
+        "terms": DocumentLocation(CONTRIB, "Netflix", "Terms of Service.md"),
+        "privacy": DocumentLocation(CONTRIB, "Netflix", "Privacy Policy.md"),
+    },
+    "lyft": {
+        "terms": DocumentLocation(CONTRIB, "Lyft", "Terms of Service.md"),
+        "privacy": DocumentLocation(CONTRIB, "Lyft", "Privacy Policy.md"),
+    },
+    "discord": {
+        "terms": DocumentLocation(CONTRIB, "Discord", "Terms of Service.md"),
+        "privacy": DocumentLocation(CONTRIB, "Discord", "Privacy Policy.md"),
+    },
+    "reddit": {
+        "terms": DocumentLocation(CONTRIB, "Reddit", "Terms of Service.md"),
+        "privacy": DocumentLocation(CONTRIB, "Reddit", "Privacy Policy.md"),
+    },
+    "zoom": {
+        "terms": DocumentLocation(CONTRIB, "Zoom", "Terms of Service.md"),
+        "privacy": DocumentLocation(CONTRIB, "Zoom", "Privacy Policy.md"),
+    },
+    "coursera": {
+        "terms": DocumentLocation(CONTRIB, "Coursera", "Terms of Service.md"),
+        "privacy": DocumentLocation(CONTRIB, "Coursera", "Privacy Policy.md"),
+    },
+    "paypal": {
+        "terms": DocumentLocation(CONTRIB, "PayPal", "Terms of Service.md"),
+        "privacy": DocumentLocation(CONTRIB, "PayPal", "Privacy Policy.md"),
+    },
+    "strava": {
+        "terms": DocumentLocation(TOSDR, "Strava", "Terms of Service.md"),
+        "privacy": DocumentLocation(TOSDR, "Strava", "Privacy Policy.md"),
+    },
+    "pinterest": {
+        "terms": DocumentLocation(CONTRIB, "Pinterest", "Terms of Service.md"),
+        "privacy": DocumentLocation(CONTRIB, "Pinterest", "Privacy Policy.md"),
+    },
+}
 
 
 @dataclass(frozen=True)
@@ -47,9 +92,9 @@ class Source:
 
 
 SOURCES = (
-    Source("contrib-versions", "https://github.com/OpenTermsArchive/contrib-versions"),
+    Source(CONTRIB, "https://github.com/OpenTermsArchive/contrib-versions"),
     Source(
-        "tosdr-versions",
+        TOSDR,
         "https://github.com/tosdr/tosdr-versions",
         tag_prefix="dataset-tosdr-",
     ),
