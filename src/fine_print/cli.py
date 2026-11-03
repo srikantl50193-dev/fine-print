@@ -1,6 +1,7 @@
 """The `fine-print` command line."""
 
-from typing import Annotated, NoReturn
+from collections.abc import Sequence
+from typing import Annotated, Literal, NoReturn
 
 import typer
 from pydantic import ValidationError
@@ -9,6 +10,11 @@ from fine_print.chunking import chunk_document
 from fine_print.config import STRATEGIES, get_settings
 from fine_print.ingest import load_documents
 from fine_print.logging_config import configure_logging
+from fine_print.models import Citation, Document, RetrievedChunk
+
+# Typer reads the choices from this at runtime, which it can't do through `Strategy`,
+# because that is a `type` statement.
+StrategyChoice = Literal["fixed", "section"]
 
 app = typer.Typer(
     help="Local, citation-first RAG over Terms of Service and privacy policies.",
@@ -42,12 +48,26 @@ def main() -> None:
     configure_logging(settings.log_level, json_output=settings.log_json)
 
 
+def _load_documents_or_fail() -> list[Document]:
+    """Load the raw documents, turning any problem into a clean exit."""
+    raw_dir = get_settings().raw_dir
+    try:
+        documents = load_documents(raw_dir)
+    except FileNotFoundError:
+        _fail(f"{raw_dir} does not exist. Run: make data")
+    except ValueError as error:
+        _fail(str(error))
+    if not documents:
+        _fail(f"No documents in {raw_dir}. Run: make data")
+    return documents
+
+
 @app.command()
 def ingest() -> None:
     """Parse and chunk every document in the raw folder, and report the counts."""
     settings = get_settings()
+    documents = _load_documents_or_fail()
     try:
-        documents = load_documents(settings.raw_dir)
         counts = [
             [
                 len(chunk_document(document, strategy, settings.chunk_size, settings.chunk_overlap))
@@ -55,12 +75,8 @@ def ingest() -> None:
             ]
             for document in documents
         ]
-    except FileNotFoundError:
-        _fail(f"{settings.raw_dir} does not exist. Run scripts/download_data.py first.")
     except ValueError as error:
         _fail(str(error))
-    if not documents:
-        _fail(f"No documents in {settings.raw_dir}. Run scripts/download_data.py first.")
 
     typer.echo(f"{'document':<28}{'characters':>12}" + "".join(f"{s:>10}" for s in STRATEGIES))
     for document, row in zip(documents, counts, strict=True):
@@ -71,15 +87,82 @@ def ingest() -> None:
 
 
 @app.command()
-def index() -> None:
+def index(
+    strategy: Annotated[
+        StrategyChoice | None,
+        typer.Option(help="Build only this strategy's index. The default is both."),
+    ] = None,
+) -> None:
     """Embed the chunks and build the vector index."""
-    _not_implemented("index", "the embedding and vector store layer")
+    # Imported here because these load torch and Chroma, which most commands don't need.
+    from fine_print.embed import embed_chunks  # noqa: PLC0415
+    from fine_print.store import build_collection  # noqa: PLC0415
+
+    settings = get_settings()
+    documents = _load_documents_or_fail()
+    typer.echo(f"Loaded {len(documents)} documents from {settings.raw_dir}")
+    for name in [strategy] if strategy else STRATEGIES:
+        try:
+            chunks = [
+                chunk
+                for document in documents
+                for chunk in chunk_document(
+                    document, name, settings.chunk_size, settings.chunk_overlap
+                )
+            ]
+        except ValueError as error:
+            _fail(str(error))
+        count = build_collection(chunks, embed_chunks(chunks), name)
+        typer.echo(f"Indexed {count} chunks for the '{name}' strategy")
+    typer.echo(f"Index saved in {settings.chroma_dir}")
+
+
+def _print_passages(chunks: Sequence[RetrievedChunk | Citation]) -> None:
+    """Print one line per passage, with its score, label and a preview of its text."""
+    for chunk in chunks:
+        preview = " ".join(chunk.text.split())[:90]
+        typer.echo(
+            f"  {chunk.similarity:.3f}  {chunk.label} ({chunk.doc_type})\n         {preview}"
+        )
 
 
 @app.command()
-def ask(question: Annotated[str, typer.Argument(help="The question to answer.")]) -> None:
+def ask(
+    question: Annotated[str, typer.Argument(help="The question to answer.")],
+    company: Annotated[str | None, typer.Option(help="Only search this company.")] = None,
+    doc_type: Annotated[
+        str | None, typer.Option(help="Only search this document type: terms or privacy.")
+    ] = None,
+    strategy: Annotated[StrategyChoice | None, typer.Option(help="The index to search.")] = None,
+    top_k: Annotated[int | None, typer.Option(min=1, help="How many passages to retrieve.")] = None,
+    retrieve_only: Annotated[
+        bool, typer.Option("--retrieve-only", help="Show the passages and skip the model.")
+    ] = False,
+) -> None:
     """Answer a question from the documents, with citations."""
-    _not_implemented("ask", "retrieval and the Ollama answer step")
+    # Imported here because these load torch and Chroma, which most commands don't need.
+    from fine_print.rag import OllamaError, answer_question, retrieve  # noqa: PLC0415
+    from fine_print.store import IndexNotBuiltError  # noqa: PLC0415
+
+    try:
+        if retrieve_only:
+            _print_passages(retrieve(question, strategy, top_k, company, doc_type))
+            return
+        answer = answer_question(question, strategy, top_k, company, doc_type)
+    except (IndexNotBuiltError, OllamaError) as error:
+        _fail(str(error))
+
+    typer.echo(answer.text)
+    if answer.refusal_reason == "low_similarity":
+        typer.echo("\nNo passage was similar enough to the question to ask the model.")
+    elif answer.citations:
+        typer.echo("\nCited passages:")
+        _print_passages(answer.citations)
+    elif not answer.refused:
+        typer.echo(
+            "\nWarning: the answer cites no retrieved passage, so treat it as unverified.",
+            err=True,
+        )
 
 
 @app.command(name="eval")

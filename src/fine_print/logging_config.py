@@ -36,5 +36,12 @@ def configure_logging(level: str = "INFO", *, json_output: bool = False) -> None
     root.handlers[:] = [handler]
     root.setLevel(level.upper())
     # Third-party libraries are chatty at INFO, and their details rarely help here.
-    for noisy in ("httpx", "httpcore", "sentence_transformers", "chromadb", "transformers"):
+    for noisy in (
+        "httpx",
+        "httpcore",
+        "huggingface_hub",
+        "sentence_transformers",
+        "chromadb",
+        "transformers",
+    ):
         logging.getLogger(noisy).setLevel(logging.WARNING)
