@@ -1,0 +1,637 @@
+{
+ "model": "gemma4:e4b",
+ "prompt": "numbered_quote",
+ "answered": 0.9032258064516129,
+ "cited_any": 0.9032258064516129,
+ "cited_relevant": 0.6451612903225806,
+ "unanswerable_refused": 0.9333333333333333,
+ "p95_latency_s": 9.869893993798177,
+ "failures": {
+  "not_retrieved": 11
+ },
+ "wrongly_refused": [
+  "How long does Coursera store my personal information?",
+  "Can I get my Strava subscription money back?",
+  "Does Strava get paid for handing over my information?"
+ ],
+ "wrongly_answered": [
+  "What is the dress code for Lyft drivers at airports?"
+ ],
+ "records": [
+  {
+   "question": "How long does Spotify hold on to my personal information?",
+   "answerable": true,
+   "text": "Quote: We keep your personal data only as long as necessary to provide you with the Spotify Service and for Spotify’s legitimate and essential business purposes, such as: [Spotify – 6. Data retention]\nAnswer: Spotify keeps your personal data only as long as it is necessary to provide the Spotify Service and for Spotify's legitimate and essential business purposes, which include maintaining the performance of the Spotify Service, making data-driven business decisions about new features and offerings, complying with legal obligations, and resolving disputes [Spotify – 6. Data retention].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Spotify – 6. Data retention]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 6.3755629998631775
+  },
+  {
+   "question": "Will Spotify give my money back if I cancel partway through a subscription period?",
+   "answerable": true,
+   "text": "Quote: Unless otherwise required by law, we do not provide refunds or credits for any partial subscription periods, except as expressly stated in these Terms. [Spotify – Billing and cancellation]\nQuote: Unless otherwise required by law, we do not provide refunds or credits for any partial subscription periods, except as [Spotify – Billing and cancellation]\nQuote: Spotify has no liability to you, nor any obligation to provide a refund to you, in connection with internet or other Spotify Service outages or failures that are caused by the [Spotify – Service limitations and modifications]\nQuote: ...and (except as expressly provided in these Terms) Spotify will not refund any amounts that you have already paid. [Spotify – Suspending and terminating the Spotify Service]\n\nAnswer: Generally, Spotify does not provide refunds or credits for partial subscription periods unless it is expressly stated in the Terms [Spotify – Billing and cancellation].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Spotify – Billing and cancellation]",
+    "[Spotify – Service limitations and modifications]",
+    "[Spotify – Suspending and terminating the Spotify Service]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 7.286908708978444
+  },
+  {
+   "question": "Can I team up with other Spotify customers to sue the company as a group?",
+   "answerable": true,
+   "text": "Quote: To the fullest extent permitted by applicable law, you and Spotify agree that each party may bring claims (whether in court or in arbitration) against the other only in an individual capacity. Neither party may participate as a plaintiff, claimant, or class member in any class, collective, consolidated, private attorney general, or representative proceeding (whether in court or arbitration). [Spotify – Governing law, jurisdiction, class action waiver, and jury trial waiver]\nAnswer: No, you and Spotify agree that each party may only bring claims in an individual capacity and neither party may participate as a plaintiff, claimant, or class member in any class, collective, consolidated, private attorney general, or representative proceeding [Spotify – Governing law, jurisdiction, class action waiver, and jury trial waiver].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Spotify – Governing law, jurisdiction, class action waiver, and jury trial waiver]"
+   ],
+   "relevant_shown": false,
+   "correct_citation": false,
+   "failure": "not_retrieved",
+   "latency_s": 6.559166125021875
+  },
+  {
+   "question": "How old do you need to be to open a Netflix account?",
+   "answerable": true,
+   "text": "Quote: \"You must be at least 18 years of age to create a Netflix account or, where available, to become an Extra Member.\" [Netflix – 1. The Netflix Service]\nAnswer: You must be at least 18 years of age to create a Netflix account [Netflix – 1. The Netflix Service].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Netflix – 1. The Netflix Service]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 4.351551207946613
+  },
+  {
+   "question": "Can somebody who doesn't live with me use my Netflix plan?",
+   "answerable": true,
+   "text": "Quote: The Netflix service and any content accessed through it are for your personal, non-commercial use only and may not be shared with anyone outside of your household, unless, in countries where this feature is available, you purchased an Extra Member account. [Netflix – 1. The Netflix Service]\nAnswer: No, the Netflix service and its content are for your personal, non-commercial use only and cannot be shared with anyone outside of your household, unless you purchased an Extra Member account in countries where that feature is available [Netflix – 1. The Netflix Service].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Netflix – 1. The Netflix Service]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 5.6191022919956595
+  },
+  {
+   "question": "How long does Netflix hang on to my details?",
+   "answerable": true,
+   "text": "Quote: We may retain personal information as required or permitted by applicable laws and regulations, including to honor your choices, for our billing or records purposes, and as otherwise necessary to fulfill the purposes described in this Privacy Statement.\nAnswer: Netflix may retain personal information as required or permitted by applicable laws and regulations, including to honor your choices, for billing or records purposes, and as otherwise necessary to fulfill the purposes described in the Privacy Statement [Netflix – Retention of Personal Information].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Netflix – Retention of Personal Information]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 5.556549499975517
+  },
+  {
+   "question": "How long does Lyft store records of my past trips and payments?",
+   "answerable": true,
+   "text": "Quote: We retain transactional information such as rides and payments for at least seven years to ensure we can perform legitimate business functions, such as accounting for tax obligations. [Lyft – How We Store and Protect Your Information]\nAnswer: Lyft retains transactional information such as rides and payments for at least seven years to ensure it can perform legitimate business functions, such as accounting for tax obligations [Lyft – How We Store and Protect Your Information].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Lyft – How We Store and Protect Your Information]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 4.971559124998748
+  },
+  {
+   "question": "Will Lyft charge me if I book a ride and never turn up?",
+   "answerable": true,
+   "text": "Quote: Lyft may also charge a fee if you fail to show up after requesting a ride.\nAnswer: Yes, Lyft may charge a fee if you fail to show up after requesting a ride [Lyft – Charges].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Lyft – Charges]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 5.044421708909795
+  },
+  {
+   "question": "Can a 17 year old ride with Lyft?",
+   "answerable": true,
+   "text": "Quote: * **Rideshare Services:** If you are the parent or legal guardian of a 13- to 17-year-old minor, you may create a User account for such minor to use the Lyft Platform solely to access and use Rideshare Services as a Rider in certain markets where expressly permitted under the applicable Supplemental Agreement, and subject to the following requirements and restrictions: [Lyft – Eligibility]\nAnswer: Yes, a 17-year-old minor may use the Lyft Platform as a Rider for Rideshare Services if a parent or legal guardian creates the account, provided it is in certain markets expressly permitted under the applicable Supplemental Agreement and subject to certain requirements and restrictions [Lyft – Eligibility].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Lyft – Eligibility]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 7.2112845841329545
+  },
+  {
+   "question": "Is Lyft making money by selling my data?",
+   "answerable": true,
+   "text": "Quote: \"We do not sell your personal information to third parties for money–no one can buy the personal information we collect from and about you and we do not act as a data broker.\" [Lyft – How We Disclose Your Information]\nAnswer: Lyft does not sell your personal information to third parties for money, and no one can buy the personal information Lyft collects from and about you, nor does Lyft act as a data broker [Lyft – How We Disclose Your Information].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Lyft – How We Disclose Your Information]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 6.112651708070189
+  },
+  {
+   "question": "What's the youngest age allowed on Discord?",
+   "answerable": true,
+   "text": "Quote:By accessing our services, you confirm that you’re at least 13 years old and meet the minimum age required by the laws in your country. [Discord – Age requirements and responsibility of parents and legal guardians]\nAnswer: The youngest age allowed on Discord is at least 13 years old [Discord – Age requirements and responsibility of parents and legal guardians].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Discord – Age requirements and responsibility of parents and legal guardians]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 5.204181959154084
+  },
+  {
+   "question": "Does Discord sell what it knows about me to advertisers?",
+   "answerable": true,
+   "text": "Quote: We don’t make money from selling your personal information to third parties.\nAnswer: No, Discord does not make money from selling your personal information to third parties [Discord – A little bit about Discord].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Discord – A little bit about Discord]"
+   ],
+   "relevant_shown": false,
+   "correct_citation": false,
+   "failure": "not_retrieved",
+   "latency_s": 3.775443083140999
+  },
+  {
+   "question": "What happens if a lot of people bring the same dispute against Discord at once?",
+   "answerable": true,
+   "text": "Quote: You agree that any Dispute between you and Discord that for any reason is not subject to the “Agreement to Arbitrate” section below may only be pursued by you on an individual basis, and you may not bring a claim as a plaintiff or a class member in a class, collective, or representative action. [Discord – Settling disputes between you and Discord]\nQuote: IF YOU’RE A U.S. RESIDENT, EXCEPT AS PROVIDED HEREIN, UNLESS DISCORD AGREES OTHERWISE IN A SEPARATE WRITING, YOU AND DISCORD AGREE THAT EACH MAY BRING CLAIMS AGAINST THE OTHER ONLY IN OUR INDIVIDUAL CAPACITY, AND NOT AS A PLAINTIFF OR CLASS MEMBER IN ANY PURPORTED CLASS OR REPRESENTATIVE PROCEEDING AND THE ARBITRATOR MAY AWARD RELIEF ONLY IN FAVOR OF THE INDIVIDUAL PARTY SEEKING RELIEF AND ONLY TO THE EXTENT NECESSARY TO RESOLVE AN INDIVIDUAL PARTY’S CLAIM. [Discord – Settling disputes between you and Discord]\nQuote: This subsection does not prevent you or Discord from participating in a class-wide settlement of claims. [Discord – Settling disputes between you and Discord]\n\nAnswer: If a Dispute is not subject to the \"Agreement to Arbitrate,\" it may only be pursued by an individual, and you cannot bring a claim as a plaintiff or a class member in a class, collective, or representative action [Discord – Settling disputes between you and Discord]. For U.S. residents, claims must generally be brought in an individual capacity, and the arbitrator may only award relief to the individual party seeking relief to the extent necessary to resolve that individual's claim [Discord – Settling disputes between you and Discord]. However, this does not prevent participation in a class-wide settlement of claims [Discord – Settling disputes between you and Discord].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Discord – Settling disputes between you and Discord]"
+   ],
+   "relevant_shown": false,
+   "correct_citation": false,
+   "failure": "not_retrieved",
+   "latency_s": 11.49580195802264
+  },
+  {
+   "question": "Are kids allowed to have a Reddit account?",
+   "answerable": true,
+   "text": "Quote: \"No one under 13 is allowed to use or access the Services.\" [Reddit – 1. Your Access to the Services]\nAnswer: No one under 13 is allowed to use or access the Services [Reddit – 1. Your Access to the Services].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Reddit – 1. Your Access to the Services]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 4.776851166039705
+  },
+  {
+   "question": "What rights does Reddit get over the things I post?",
+   "answerable": true,
+   "text": "Quote: When Your Content is created with or submitted to the Services, you grant us a worldwide, [Reddit – 5. Your Content]\nAnswer: When you create or submit content to the Services, you grant Reddit a worldwide license to use that Content [Reddit – 5. Your Content].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Reddit – 5. Your Content]"
+   ],
+   "relevant_shown": false,
+   "correct_citation": false,
+   "failure": "not_retrieved",
+   "latency_s": 5.305392042035237
+  },
+  {
+   "question": "How long does Reddit hold on to my IP address?",
+   "answerable": true,
+   "text": "Quote: Except for the IP address used to create your account, Reddit will delete any IP addresses collected after 100 days. [Reddit – What Information We Collect]\nAnswer: Reddit will delete any IP addresses collected after 100 days, except for the IP address used to create your account [Reddit – What Information We Collect].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Reddit – What Information We Collect]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 4.494198833126575
+  },
+  {
+   "question": "Will my paid Zoom plan keep billing me automatically?",
+   "answerable": true,
+   "text": "Quote: (ii) in Sections 12 and 14, that certain terms and conditions apply with respect to recurring subscription Charges and automatic renewals; [Zoom – Effective Date: August 11, 2023]\nAnswer: Certain terms and conditions apply with respect to recurring subscription Charges and automatic renewals in Sections 12 and 14 [Zoom – Effective Date: August 11, 2023].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Zoom – Effective Date: August 11, 2023]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 5.713334041181952
+  },
+  {
+   "question": "Can other people read my Zoom Email messages?",
+   "answerable": true,
+   "text": "Quote: \"Zoom Email is designed to be end-to-end encrypted by Zoom by default for emails sent and received directly between active Zoom Email users.\" [Zoom – What Personal Data Do We Receive?]\nAnswer: Yes, Zoom Email is designed to be end-to-end encrypted by Zoom by default for emails sent and received directly between active Zoom Email users [Zoom – What Personal Data Do We Receive?].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Zoom – What Personal Data Do We Receive?]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 6.150417709024623
+  },
+  {
+   "question": "Is Zoom allowed to shut down a service I'm paying for?",
+   "answerable": true,
+   "text": "Quote: Notwithstanding anything to the contrary herein, if you fail to comply with any provision of this Agreement or any referenced policies, guides, notices, or statements, Zoom may (i) immediately suspend your access to the Services, or (ii) terminate this Agreement, effective immediately. [Zoom – 14. TERM; TERMINATION AND SUSPENSION]\nQuote: Without limiting our rights in any other section of this Agreement, including 14.3, if any failure to pay Charges continues for five (5) calendar days following the due date, Zoom may terminate, suspend, or disconnect your Services immediately and without prior notice. [Zoom – 12. PAYMENTS AND CHARGES]\nQuote: Additionally, Zoom may terminate this Agreement, for any reason or no reason, upon thirty (30) business days’ advance notice. [Zoom – 14. TERM; TERMINATION AND SUSPENSION]\n\nAnswer: Yes, Zoom may terminate the Agreement immediately if you fail to comply with any provision of the Agreement or referenced policies, guides, notices, or statements [Zoom – 14. TERM; TERMINATION AND SUSPENSION]. Furthermore, if a failure to pay Charges continues for five calendar days after the due date, Zoom may terminate your Services immediately without prior notice [Zoom – 12. PAYMENTS AND CHARGES]. Zoom can also terminate the Agreement for any reason or no reason with thirty business days' advance notice [Zoom – 14. TERM; TERMINATION AND SUSPENSION].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Zoom – 12. PAYMENTS AND CHARGES]",
+    "[Zoom – 14. TERM; TERMINATION AND SUSPENSION]"
+   ],
+   "relevant_shown": false,
+   "correct_citation": false,
+   "failure": "not_retrieved",
+   "latency_s": 9.7905449999962
+  },
+  {
+   "question": "Do I give up my right to a jury if I have a dispute with Coursera?",
+   "answerable": true,
+   "text": "Quote: (2) YOU ARE WAIVING YOUR RIGHT TO PURSUE DISPUTES OR CLAIMS AND SEEK RELIEF IN A COURT OF LAW AND TO HAVE A JURY TRIAL.\nAnswer: Yes, you are waiving your right to pursue disputes or claims and seek relief in a court of law and to have a jury trial when using Coursera's Services [Coursera – Thank you for using Coursera!].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Coursera – Thank you for using Coursera!]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 5.553239125059918
+  },
+  {
+   "question": "How long does Coursera store my personal information?",
+   "answerable": true,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "model_declined",
+   "cited_labels": [],
+   "relevant_shown": false,
+   "correct_citation": false,
+   "failure": "not_retrieved",
+   "latency_s": 3.766357583925128
+  },
+  {
+   "question": "Could Coursera still have my data after I ask them to erase it?",
+   "answerable": true,
+   "text": "Quote: Following deletion, we may retain limited Personal Data where necessary for lawful and legitimate purposes, which may vary depending on your location, such as complying with legal obligations.\nAnswer: Yes, Coursera may retain limited Personal Data after you request deletion if it is necessary for lawful and legitimate purposes, which can vary based on your location, such as complying with legal obligations [Coursera – Your Rights].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Coursera – Your Rights]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 5.095662791049108
+  },
+  {
+   "question": "Can a teenager sign up for their own PayPal account?",
+   "answerable": true,
+   "text": "Quote: Either be an individual (at least 18 years old) or a business that is able to form a legally binding contract; and [Paypal – Opening an account]\nQuote: If you are an individual, you must be at least 18 years old and have full legal capacity to enter into a contract to open a PayPal account and use the PayPal services. [Paypal – Welcome to PayPal!]\nAnswer: An individual must be at least 18 years old to open a PayPal account [Paypal – Opening an account] [Paypal – Welcome to PayPal!].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Paypal – Opening an account]",
+    "[Paypal – Welcome to PayPal!]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 5.994986000005156
+  },
+  {
+   "question": "How long does PayPal keep my information once I stop being a customer?",
+   "answerable": true,
+   "text": "Quote: Personal Information used for the ongoing relationship between you and PayPal is stored for the duration of the relationship plus a period of 10 years or such period as mandated by any applicable local law once our relationship comes to an end, unless we need to keep it longer to the extent permitted by applicable law, such as: [Paypal – How Long We Store Your Personal Information]\nAnswer: Personal Information used for the ongoing relationship with PayPal is stored for the duration of the relationship plus 10 years, or for the period required by applicable local law after the relationship ends, unless a longer retention is permitted by applicable law [Paypal – How Long We Store Your Personal Information].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Paypal – How Long We Store Your Personal Information]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 6.808907625032589
+  },
+  {
+   "question": "How much time do I have to get my money back from my bank for a PayPal SEPA debit?",
+   "answerable": true,
+   "text": "Quote: You can claim a refund from your bank at any time up to 8 weeks after the date on which the SEPA Direct Debit payment took place in accordance with your bank's terms and conditions. [Paypal – Your continuous permission for us to charge your funding sources]\nAnswer: You can claim a refund from your bank up to 8 weeks after the date the SEPA Direct Debit payment took place, according to your bank's terms and conditions [Paypal – Your continuous permission for us to charge your funding sources].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Paypal – Your continuous permission for us to charge your funding sources]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 5.784698250005022
+  },
+  {
+   "question": "What age do I need to be to join Strava?",
+   "answerable": true,
+   "text": "Quote: The Services are intended solely for persons who are 13 years old or such higher age required in your country to use the Services. [Strava – Registration and Accounts]\nAnswer: You need to be 13 years old or the higher age required in your country to use the Services [Strava – Registration and Accounts].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Strava – Registration and Accounts]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 5.905349334003404
+  },
+  {
+   "question": "Can I get my Strava subscription money back?",
+   "answerable": true,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "model_declined",
+   "cited_labels": [],
+   "relevant_shown": false,
+   "correct_citation": false,
+   "failure": "not_retrieved",
+   "latency_s": 3.9216090829577297
+  },
+  {
+   "question": "Does Strava get paid for handing over my information?",
+   "answerable": true,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "model_declined",
+   "cited_labels": [],
+   "relevant_shown": false,
+   "correct_citation": false,
+   "failure": "not_retrieved",
+   "latency_s": 2.6881101250182837
+  },
+  {
+   "question": "If I close my Strava account, does my data actually go away?",
+   "answerable": true,
+   "text": "Quote: After you make an account deletion request, we permanently and irreversibly delete your personal information from our systems, including backups.\nAnswer: After you make an account deletion request, your personal information is permanently and irreversibly deleted from Strava's systems, including backups [Strava – Deleting Information and Accounts and Downloading Your Data].\n\nQuote: Following your deletion of your account, it may take up to 45 days to delete your personal information and system logs from our systems.\nAnswer: Following your deletion of your account, it may take up to 45 days for your personal information and system logs to be deleted from Strava's systems [Strava – Deleting Information and Accounts and Downloading Your Data] [Strava – Retention of Information].\n\nQuote: Additionally, we may retain information where deletion requests are made to comply with the law and take other actions permitted by law.\nAnswer: Strava may retain information even after a deletion request to comply with the law and take other actions permitted by law [Strava – Deleting Information and Accounts and Downloading Your Data] [Strava – Retention of Information].\n\nQuote: Note that we do not have control over content you have shared directly with others, such as photos or videos on other social media platforms, or that others may have copied. In other words, content or information may remain available after you have deleted your account or deleted specific information from your own profile.\nAnswer: Content or information may remain available even after you delete your account or specific information from your profile because Strava does not control content you shared directly with others [Strava – Deleting Information and Accounts and Downloading Your Data].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Strava – Deleting Information and Accounts and Downloading Your Data]",
+    "[Strava – Retention of Information]"
+   ],
+   "relevant_shown": false,
+   "correct_citation": false,
+   "failure": "not_retrieved",
+   "latency_s": 10.319538292009383
+  },
+  {
+   "question": "What can Pinterest do with the pictures I upload?",
+   "answerable": true,
+   "text": "Quote: You retain all rights in, and are solely responsible for, the User Content you post to Pinterest. [Pinterest – a. Posting User Content]\nAnswer: You retain all rights in, and are solely responsible for, the User Content you post to Pinterest [Pinterest – a. Posting User Content].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Pinterest – a. Posting User Content]"
+   ],
+   "relevant_shown": false,
+   "correct_citation": false,
+   "failure": "not_retrieved",
+   "latency_s": 4.530210416065529
+  },
+  {
+   "question": "Does Pinterest use the websites I visit to show me ads?",
+   "answerable": true,
+   "text": "Quote: Depending on your age, location and privacy settings, we customize the ads we show you by identifying your interests based on your onsite and offsite activities, as well as by using information we receive from ad partners or other third parties. [Pinterest – We also use your information to personalize the ads you see]\nQuote: Where we use cookies to identify your offsite interests, we’ll get your consent where required. [Pinterest – We also use your information to personalize the ads you see]\nAnswer: Yes, Pinterest customizes ads by identifying interests based on offsite activities and using information from ad partners or other third parties [Pinterest – We also use your information to personalize the ads you see]. They will get consent where required when using cookies to identify offsite interests [Pinterest – We also use your information to personalize the ads you see].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Pinterest – We also use your information to personalize the ads you see]"
+   ],
+   "relevant_shown": false,
+   "correct_citation": false,
+   "failure": "not_retrieved",
+   "latency_s": 6.594963167095557
+  },
+  {
+   "question": "What is the capital of France?",
+   "answerable": false,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "low_similarity",
+   "cited_labels": [],
+   "relevant_shown": null,
+   "correct_citation": null,
+   "failure": null,
+   "latency_s": null
+  },
+  {
+   "question": "How do I bake sourdough bread at home?",
+   "answerable": false,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "low_similarity",
+   "cited_labels": [],
+   "relevant_shown": null,
+   "correct_citation": null,
+   "failure": null,
+   "latency_s": null
+  },
+  {
+   "question": "Who won the football World Cup in 2014?",
+   "answerable": false,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "low_similarity",
+   "cited_labels": [],
+   "relevant_shown": null,
+   "correct_citation": null,
+   "failure": null,
+   "latency_s": null
+  },
+  {
+   "question": "What is the boiling point of water at sea level?",
+   "answerable": false,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "low_similarity",
+   "cited_labels": [],
+   "relevant_shown": null,
+   "correct_citation": null,
+   "failure": null,
+   "latency_s": null
+  },
+  {
+   "question": "Can you recommend a good science fiction novel?",
+   "answerable": false,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "low_similarity",
+   "cited_labels": [],
+   "relevant_shown": null,
+   "correct_citation": null,
+   "failure": null,
+   "latency_s": null
+  },
+  {
+   "question": "How many moons does Jupiter have?",
+   "answerable": false,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "low_similarity",
+   "cited_labels": [],
+   "relevant_shown": null,
+   "correct_citation": null,
+   "failure": null,
+   "latency_s": null
+  },
+  {
+   "question": "What is the best way to train for a marathon?",
+   "answerable": false,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "low_similarity",
+   "cited_labels": [],
+   "relevant_shown": null,
+   "correct_citation": null,
+   "failure": null,
+   "latency_s": null
+  },
+  {
+   "question": "How do I fix a leaking kitchen tap?",
+   "answerable": false,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "low_similarity",
+   "cited_labels": [],
+   "relevant_shown": null,
+   "correct_citation": null,
+   "failure": null,
+   "latency_s": null
+  },
+  {
+   "question": "What is the return policy for a defective television from Netflix?",
+   "answerable": false,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "model_declined",
+   "cited_labels": [],
+   "relevant_shown": null,
+   "correct_citation": null,
+   "failure": null,
+   "latency_s": 2.9054635409265757
+  },
+  {
+   "question": "Does Spotify offer a discount on concert tickets in Japan?",
+   "answerable": false,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "model_declined",
+   "cited_labels": [],
+   "relevant_shown": null,
+   "correct_citation": null,
+   "failure": null,
+   "latency_s": 2.756866415962577
+  },
+  {
+   "question": "What is the dress code for Lyft drivers at airports?",
+   "answerable": false,
+   "text": "Quote: no right to require you to: (a) display Lyft's names, logos or colors on your vehicle(s); or (b) wear a uniform or any other clothing displaying Lyft's names, logos or colors.\nAnswer: Lyft does not have the right to require drivers to wear a uniform or any other clothing displaying Lyft's names, logos or colors [Lyft – Relationship with Lyft].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Lyft – Relationship with Lyft]"
+   ],
+   "relevant_shown": null,
+   "correct_citation": null,
+   "failure": null,
+   "latency_s": 5.082188457949087
+  },
+  {
+   "question": "How many vacation days do Zoom employees get?",
+   "answerable": false,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "model_declined",
+   "cited_labels": [],
+   "relevant_shown": null,
+   "correct_citation": null,
+   "failure": null,
+   "latency_s": 3.801498959073797
+  },
+  {
+   "question": "Does Reddit pay taxes in Ireland?",
+   "answerable": false,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "model_declined",
+   "cited_labels": [],
+   "relevant_shown": null,
+   "correct_citation": null,
+   "failure": null,
+   "latency_s": 3.3014552909880877
+  },
+  {
+   "question": "Who is the current chief executive of PayPal?",
+   "answerable": false,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "model_declined",
+   "cited_labels": [],
+   "relevant_shown": null,
+   "correct_citation": null,
+   "failure": null,
+   "latency_s": 3.4962967499159276
+  },
+  {
+   "question": "Which programming language is Discord written in?",
+   "answerable": false,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "model_declined",
+   "cited_labels": [],
+   "relevant_shown": null,
+   "correct_citation": null,
+   "failure": null,
+   "latency_s": 3.4526754580438137
+  }
+ ]
+}

@@ -11,6 +11,7 @@ Usage: uv run python scripts/compare_answers.py [--model NAME]... [--prompt NAME
 
 import argparse
 import statistics
+import subprocess
 import time
 from pathlib import Path
 
@@ -33,6 +34,7 @@ MIN_UNANSWERABLE_REFUSED = 0.9
 MAX_P95_LATENCY_S = 30.0
 SPEED_PROMPT = "Explain in about 100 words what a privacy policy is."
 LOAD_TIMEOUT_S = 600
+UNLOAD_WAIT_S = 3
 
 
 def run_path(model: str, prompt: str) -> Path:
@@ -45,10 +47,25 @@ def unload(model: str) -> None:
     httpx.post(url, json={"model": model, "keep_alive": 0}, timeout=LOAD_TIMEOUT_S)
 
 
+def ollama_memory_gb() -> float:
+    """Return the resident memory of Ollama's processes.
+
+    Ollama's /api/ps reports 0.26 GB for gemma4:e4b, whose weights alone are 6.6 GB, so it can't
+    be used to compare models.
+    """
+    table = subprocess.run(
+        ["ps", "-axo", "rss=,command="], capture_output=True, text=True, check=True
+    ).stdout
+    kilobytes = [int(line.split()[0]) for line in table.splitlines() if "ollama" in line.lower()]
+    return sum(kilobytes) / 1e6
+
+
 def measure_model(model: str) -> dict[str, float]:
     """Measure a model's load time, loaded memory and generation speed."""
     url = get_settings().ollama_url
     unload(model)
+    time.sleep(UNLOAD_WAIT_S)
+    idle_gb = ollama_memory_gb()
     options = {"temperature": 0, "num_ctx": get_settings().ollama_num_ctx, "num_predict": 200}
     speeds = []
     load_s = 0.0
@@ -67,11 +84,9 @@ def measure_model(model: str) -> dict[str, float]:
         if attempt == 0:
             load_s = body["load_duration"] / 1e9
         speeds.append(body["eval_count"] / (body["eval_duration"] / 1e9))
-    loaded = httpx.get(f"{url}/api/ps", timeout=30).json()["models"]
-    size = next(m["size"] for m in loaded if m["name"].startswith(model))
     return {
         "load_s": round(load_s, 1),
-        "memory_gb": round(size / 1e9, 1),
+        "memory_gb": round(ollama_memory_gb() - idle_gb, 1),
         "tokens_per_s": round(statistics.median(speeds), 1),
     }
 
