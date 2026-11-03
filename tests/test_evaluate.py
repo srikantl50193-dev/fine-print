@@ -8,6 +8,7 @@ from fine_print.config import get_settings
 from fine_print.evaluate import (
     EvalQuestion,
     OutOfScopeQuestion,
+    classify_failure,
     evaluate_answers,
     evaluate_strategy,
     evaluate_threshold,
@@ -19,6 +20,7 @@ from fine_print.evaluate import (
     recall_at_k,
 )
 from fine_print.models import Answer, RetrievedChunk
+from fine_print.prompts import Prompt, load_prompt
 
 QUESTION = EvalQuestion(
     question="Any fee?", company="acme", doc_type="terms", keywords=["$5", "cancellation"]
@@ -119,55 +121,121 @@ def test_empty_retrieval_counts_as_a_refusal(monkeypatch: pytest.MonkeyPatch) ->
     assert result.unanswerable_refused == 1.0
 
 
-def fake_answer(text: str = "Answer.", chunks: tuple[RetrievedChunk, ...] = (), **fields: object):
-    return lambda question, strategy: Answer.model_validate(
+def fake_answer(
+    chunks: tuple[RetrievedChunk, ...] = (),
+    cited: tuple[RetrievedChunk, ...] = (),
+    **fields: object,
+) -> Answer:
+    return Answer.model_validate(
         {
-            "question": question,
-            "text": text,
+            "question": "Q?",
+            "text": "Answer.",
             "retrieved": list(chunks),
-            "citations": rag.find_citations(" ".join(c.label for c in chunks), list(chunks)),
+            "citations": rag.find_citations(" ".join(c.label for c in cited), list(cited)),
             **fields,
         }
     )
 
 
-def test_answers_count_how_often_the_model_cites_a_relevant_passage(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    relevant = make_chunk("$5 cancellation")
-    wrong_passage = make_chunk("Nothing useful.")
+RELEVANT = make_chunk("$5 cancellation")
+WRONG = make_chunk("Nothing useful.").model_copy(update={"section": "Other"})
+
+
+def test_answers_score_every_outcome(monkeypatch: pytest.MonkeyPatch) -> None:
+    both = (RELEVANT, WRONG)
     replies = {
-        "Cites the right passage?": fake_answer(chunks=(relevant,)),
-        "Cites the wrong passage?": fake_answer(chunks=(wrong_passage,)),
-        "No citation?": fake_answer(),
-        "Refused?": fake_answer(refused=True, refusal_reason="model_declined"),
-        "Off topic?": fake_answer(refused=True, refusal_reason="low_similarity"),
-        "Off topic, answered?": fake_answer(),
+        "Right?": fake_answer(both, cited=(RELEVANT,)),
+        "Wrong?": fake_answer(both, cited=(WRONG,)),
+        "Uncited?": fake_answer(both, cited=()),
+        "Refused?": fake_answer(both, cited=(), refused=True, refusal_reason="model_declined"),
+        "Missed?": fake_answer((WRONG,), cited=(), refused=True, refusal_reason="model_declined"),
+        "Off topic?": fake_answer(cited=(), refused=True, refusal_reason="low_similarity"),
+        "Off topic, answered?": fake_answer((WRONG,), cited=(WRONG,)),
     }
-    monkeypatch.setattr(
-        evaluate,
-        "answer_question",
-        lambda question, strategy: replies[question](question, strategy),
-    )
+    calls = []
+
+    def answer_fake(question: str, strategy: str, *, model: str, prompt: Prompt) -> Answer:
+        calls.append((model, prompt.name))
+        return replies[question]
+
+    monkeypatch.setattr(evaluate, "answer_question", answer_fake)
     answerable = [
         QUESTION.model_copy(update={"question": q})
-        for q in (
-            "Cites the right passage?",
-            "Cites the wrong passage?",
-            "No citation?",
-            "Refused?",
-        )
+        for q in ("Right?", "Wrong?", "Uncited?", "Refused?", "Missed?")
     ]
     unanswerable = [OutOfScopeQuestion(question=q) for q in ("Off topic?", "Off topic, answered?")]
 
-    result = evaluate_answers("section", answerable, unanswerable)
+    result = evaluate_answers(
+        "section", answerable, unanswerable, "qwen3:8b", load_prompt("numbered")
+    )
 
-    assert result.answered == 0.75
-    assert result.cited_any == 0.5
-    assert result.cited_relevant == 0.25
-    assert result.wrongly_refused == ["Refused?"]
+    assert set(calls) == {("qwen3:8b", "numbered")}
+    assert (result.model, result.prompt) == ("qwen3:8b", "numbered")
+    assert result.answered == 0.6
+    assert result.cited_any == 0.4
+    assert result.cited_relevant == 0.2
+    assert result.wrongly_refused == ["Refused?", "Missed?"]
     assert result.unanswerable_refused == 0.5
     assert result.wrongly_answered == ["Off topic, answered?"]
+    assert result.failures == {
+        "cited_wrong_passage": 1,
+        "format_error": 1,
+        "retrieved_but_ignored": 1,
+        "not_retrieved": 1,
+    }
+    failures = {r.question: r.failure for r in result.records}
+    assert failures["Right?"] is None
+    assert failures["Wrong?"] == "cited_wrong_passage"
+    assert failures["Uncited?"] == "format_error"
+    assert failures["Refused?"] == "retrieved_but_ignored"
+    assert failures["Missed?"] == "not_retrieved"
+
+
+def test_passage_below_the_threshold_counts_as_not_retrieved(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    weak = make_chunk("$5 cancellation", similarity=0.1)
+    answer = fake_answer((weak,), refused=True, refusal_reason="low_similarity")
+    monkeypatch.setattr(evaluate, "answer_question", lambda *args, **kwargs: answer)
+
+    result = evaluate_answers("section", [QUESTION], [OutOfScopeQuestion(question="Off?")])
+
+    assert result.failures == {"not_retrieved": 1}
+    assert result.p95_latency_s == 0.0
+
+
+def test_latency_counts_only_questions_the_model_saw(monkeypatch: pytest.MonkeyPatch) -> None:
+    replies = iter(
+        [
+            fake_answer((RELEVANT,), cited=(RELEVANT,)),
+            fake_answer(refused=True, refusal_reason="low_similarity"),
+        ]
+    )
+    monkeypatch.setattr(evaluate, "answer_question", lambda *args, **kwargs: next(replies))
+
+    result = evaluate_answers("section", [QUESTION], [OutOfScopeQuestion(question="Off?")])
+
+    assert result.records[0].latency_s is not None
+    assert result.records[1].latency_s is None
+
+
+@pytest.mark.parametrize(
+    ("fields", "shown", "correct", "expected"),
+    [
+        ({}, True, True, None),
+        ({}, False, False, "not_retrieved"),
+        ({"refused": True}, False, False, "not_retrieved"),
+        ({"refused": True}, True, False, "retrieved_but_ignored"),
+        ({"cited": True}, True, False, "cited_wrong_passage"),
+        ({}, True, False, "format_error"),
+    ],
+)
+def test_classify_failure(
+    fields: dict[str, bool], shown: bool, correct: bool, expected: str | None
+) -> None:
+    cited = (RELEVANT,) if fields.pop("cited", False) else ()
+    answer = fake_answer((RELEVANT,), cited=cited, **fields)
+    assert classify_failure(answer, shown, correct) == expected
 
 
 def test_table_has_a_column_per_k(monkeypatch: pytest.MonkeyPatch) -> None:

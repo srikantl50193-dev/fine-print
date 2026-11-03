@@ -1,4 +1,4 @@
-.PHONY: setup lint format typecheck test data index eval eval-holdout compare bench api app
+.PHONY: setup lint format typecheck test data index eval eval-holdout compare compare-answers bench api app
 
 setup:
 	bash scripts/setup.sh
@@ -32,6 +32,10 @@ eval-holdout:
 
 compare:
 	uv run python scripts/compare_chunking.py
+
+# Runs every model and prompt on the tuning questions, which takes hours. Resumes if stopped.
+compare-answers:
+	uv run python scripts/compare_answers.py
 
 bench:
 	uv run fine-print bench

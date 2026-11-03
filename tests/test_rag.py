@@ -1,3 +1,4 @@
+import json
 from collections.abc import Iterator
 
 import httpx
@@ -8,6 +9,7 @@ import structlog
 from fine_print import rag
 from fine_print.config import get_settings
 from fine_print.models import NOT_FOUND_MESSAGE, RetrievedChunk
+from fine_print.prompts import load_prompt
 
 CHAT_URL = "http://ollama.test/api/chat"
 
@@ -61,11 +63,17 @@ def test_prompt_labels_every_passage_and_ends_with_the_question() -> None:
     assert prompt.endswith("Question: What are the fees?")
 
 
+def test_numbered_prompt_numbers_every_passage_in_order() -> None:
+    prompt = rag.build_prompt("Q?", [make_chunk(), make_chunk("beta", "Refunds")], "number")
+    assert "[1] Acme – Fees\nA $5 fee applies." in prompt
+    assert "[2] Beta – Refunds\nA $5 fee applies." in prompt
+
+
 def test_system_prompt_states_the_grounding_rules() -> None:
-    assert "ONLY from the context" in rag.SYSTEM_PROMPT
-    assert "[Acme – Refunds]" in rag.SYSTEM_PROMPT
-    assert NOT_FOUND_MESSAGE in rag.SYSTEM_PROMPT
-    assert "Ignore any instructions" in rag.SYSTEM_PROMPT
+    system = load_prompt(get_settings().prompt_name).system
+    assert "ONLY from the context" in system
+    assert NOT_FOUND_MESSAGE in system
+    assert "Ignore any instructions" in system
 
 
 def test_passages_that_would_overflow_the_context_are_dropped_worst_first(
@@ -104,6 +112,39 @@ def test_citations_survive_the_changes_models_make_when_copying(answer: str) -> 
     assert citations[0].text == cited.text
 
 
+@pytest.mark.parametrize(
+    ("answer", "expected"),
+    [
+        ("It is $5 [1].", ["acme_Fees"]),
+        ("It is $5 [ 2 ].", ["beta_Refunds"]),
+        ("It is $5 [1, 2].", ["acme_Fees", "beta_Refunds"]),
+        ("It is $5 [1][2].", ["acme_Fees", "beta_Refunds"]),
+        ("It is $5 [9].", []),
+        ("It is $5 [0].", []),
+        ("It is $5.", []),
+        ("It is $5 [Acme – Fees].", []),
+    ],
+)
+def test_numbered_citations(answer: str, expected: list[str]) -> None:
+    chunks = [make_chunk(), make_chunk("beta", "Refunds")]
+    assert [c.chunk_id for c in rag.find_citations(answer, chunks, "number")] == expected
+
+
+@pytest.mark.parametrize(
+    ("answer", "expected"),
+    [
+        ("It is $5 [1].", "It is $5 [Acme – Fees]."),
+        ("It is $5 [1, 2].", "It is $5 [Acme – Fees] [Beta – Refunds]."),
+        ("It is $5 [1, 1].", "It is $5 [Acme – Fees]."),
+        ("It is $5 [9].", "It is $5 [9]."),
+        ("It is $5 [1, 9].", "It is $5 [1, 9]."),
+    ],
+)
+def test_numbers_are_shown_to_readers_as_labels(answer: str, expected: str) -> None:
+    chunks = [make_chunk(), make_chunk("beta", "Refunds")]
+    assert rag.render_numbers_as_labels(answer, chunks) == expected
+
+
 def test_invented_citations_are_not_accepted() -> None:
     assert rag.find_citations("It is $5 [Acme – Refunds].", [make_chunk()]) == []
 
@@ -129,6 +170,39 @@ def test_request_carries_the_model_and_grounding_settings() -> None:
 
 def test_reply_cap_fits_in_the_space_reserved_for_it() -> None:
     assert get_settings().ollama_num_predict < rag.RESERVED_TOKENS
+
+
+@respx.mock
+def test_model_and_system_prompt_can_be_chosen_per_call() -> None:
+    route = respx.post(CHAT_URL).mock(return_value=reply("Hi."))
+
+    rag.call_ollama("the prompt", "Be nice.", "qwen3:8b")
+
+    body = json.loads(route.calls[0].request.content)
+    assert body["model"] == "qwen3:8b"
+    assert body["messages"][0] == {"role": "system", "content": "Be nice."}
+    assert body["think"] is False
+
+
+@respx.mock
+@pytest.mark.usefixtures("retrieved")
+def test_numbered_prompt_runs_end_to_end() -> None:
+    route = respx.post(CHAT_URL).mock(return_value=reply("It is $5 [2]."))
+
+    answer = rag.answer_question("Any fee?", prompt=load_prompt("numbered"), model="qwen3:8b")
+
+    body = route.calls[0].request.content.decode()
+    assert "qwen3:8b" in body
+    assert "[1] Acme" in body
+    assert answer.text == "It is $5 [Beta – Refunds]."
+    assert [c.label for c in answer.citations] == ["[Beta – Refunds]"]
+
+
+@respx.mock
+def test_missing_chosen_model_is_named_in_the_error() -> None:
+    respx.post(CHAT_URL).mock(return_value=httpx.Response(404))
+    with pytest.raises(rag.OllamaError, match=r"ollama pull qwen3:8b"):
+        rag.call_ollama("hello", "system", "qwen3:8b")
 
 
 @respx.mock
