@@ -6,14 +6,25 @@ can't see whether a passage really answers the question. So the table also repor
 strategy's chunk count and mean length, which any comparison has to take into account.
 """
 
+import time
+from collections import Counter
 from pathlib import Path
+from typing import Literal
 
+import numpy as np
 from pydantic import Field
 
 from fine_print.config import Strategy, get_settings
 from fine_print.models import Answer, FrozenModel, RetrievedChunk
-from fine_print.rag import answer_question, retrieve
+from fine_print.prompts import Prompt, load_prompt
+from fine_print.rag import answer_question, retrieve, select_passages
 from fine_print.store import collection_stats
+
+P95 = 95
+
+type FailureKind = Literal[
+    "not_retrieved", "retrieved_but_ignored", "cited_wrong_passage", "format_error"
+]
 
 
 class EvalQuestion(FrozenModel):
@@ -52,15 +63,35 @@ class ThresholdResult(FrozenModel):
     wrongly_refused: list[str]
 
 
+class AnswerRecord(FrozenModel):
+    """What happened to one question, kept so that failures can be read and classified."""
+
+    question: str
+    answerable: bool
+    text: str
+    refused: bool
+    refusal_reason: str | None
+    cited_labels: list[str]
+    relevant_shown: bool | None = None
+    correct_citation: bool | None = None
+    failure: FailureKind | None = None
+    latency_s: float | None = None
+
+
 class AnswerResult(FrozenModel):
     """How the whole pipeline, including the model, treats the questions."""
 
+    model: str
+    prompt: str
     answered: float
     cited_any: float
     cited_relevant: float
     unanswerable_refused: float
+    p95_latency_s: float
+    failures: dict[str, int]
     wrongly_refused: list[str]
     wrongly_answered: list[str]
+    records: list[AnswerRecord]
 
 
 def load_jsonl[T: FrozenModel](path: Path, model: type[T]) -> list[T]:
@@ -149,41 +180,121 @@ def evaluate_threshold(
     )
 
 
-def _cites_relevant_passage(answer: Answer, question: EvalQuestion) -> bool:
-    """Check whether a passage the answer cites is one that contains the expected text."""
-    cited = {citation.chunk_id for citation in answer.citations}
-    return any(c.chunk_id in cited and is_relevant(c, question) for c in answer.retrieved)
+def _cites_relevant_passage(
+    answer: Answer, shown: list[RetrievedChunk], question: EvalQuestion
+) -> bool:
+    """Check whether the answer cites the section of a passage with the expected text.
+
+    The check is by label, so that numbered citations, which name one passage, are held to
+    the same standard as label citations, which name a whole section.
+    """
+    cited = {citation.label for citation in answer.citations}
+    return any(c.label in cited and is_relevant(c, question) for c in shown)
+
+
+def classify_failure(
+    answer: Answer, relevant_shown: bool, correct_citation: bool
+) -> FailureKind | None:
+    """Say why an answerable question didn't get a correct citation, or None if it did.
+
+    Args:
+        answer: The pipeline's answer.
+        relevant_shown: Whether the model was shown a passage with the expected text.
+        correct_citation: Whether the answer cited that passage's section.
+    """
+    if correct_citation:
+        return None
+    if not relevant_shown:
+        return "not_retrieved"
+    if answer.refused:
+        return "retrieved_but_ignored"
+    return "cited_wrong_passage" if answer.citations else "format_error"
+
+
+def _timed_answer(
+    question: str, strategy: Strategy, model: str, prompt: Prompt
+) -> tuple[Answer, float | None]:
+    """Answer a question, timing it only if the model was called."""
+    start = time.perf_counter()
+    answer = answer_question(question, strategy, model=model, prompt=prompt)
+    elapsed = time.perf_counter() - start
+    return answer, None if answer.refusal_reason == "low_similarity" else elapsed
+
+
+def _answerable_record(
+    question: EvalQuestion, answer: Answer, latency: float | None
+) -> AnswerRecord:
+    """Score one answerable question."""
+    shown = select_passages(answer.retrieved)
+    relevant_shown = any(is_relevant(c, question) for c in shown)
+    correct = _cites_relevant_passage(answer, shown, question)
+    return AnswerRecord(
+        question=question.question,
+        answerable=True,
+        text=answer.text,
+        refused=answer.refused,
+        refusal_reason=answer.refusal_reason,
+        cited_labels=sorted({c.label for c in answer.citations}),
+        relevant_shown=relevant_shown,
+        correct_citation=correct,
+        failure=classify_failure(answer, relevant_shown, correct),
+        latency_s=latency,
+    )
 
 
 def evaluate_answers(
     strategy: Strategy,
     answerable: list[EvalQuestion],
     unanswerable: list[OutOfScopeQuestion],
+    model: str | None = None,
+    prompt: Prompt | None = None,
 ) -> AnswerResult:
     """Ask the model every question. This is slow, and needs Ollama running.
 
-    A passage counts as cited when the answer uses its label. Nothing here checks that the
+    A passage counts as cited when the answer names its section. Nothing here checks that the
     passage supports what the answer claims, so these are upper bounds on correctness.
 
     Raises:
         IndexNotBuiltError: If the strategy's index does not exist.
         OllamaError: If Ollama cannot answer.
     """
-    answers = [answer_question(q.question, strategy) for q in answerable]
-    replied = [a for a in answers if not a.refused]
-    wrongly_answered = [
-        q.question for q in unanswerable if not answer_question(q.question, strategy).refused
+    settings = get_settings()
+    model = model or settings.ollama_model
+    prompt = prompt or load_prompt(settings.prompt_name)
+
+    records = [
+        _answerable_record(q, *_timed_answer(q.question, strategy, model, prompt))
+        for q in answerable
     ]
-    return AnswerResult(
-        answered=len(replied) / len(answerable),
-        cited_any=sum(bool(a.citations) for a in replied) / len(answerable),
-        cited_relevant=sum(
-            _cites_relevant_passage(a, q) for a, q in zip(answers, answerable, strict=True)
+    for q in unanswerable:
+        answer, latency = _timed_answer(q.question, strategy, model, prompt)
+        records.append(
+            AnswerRecord(
+                question=q.question,
+                answerable=False,
+                text=answer.text,
+                refused=answer.refused,
+                refusal_reason=answer.refusal_reason,
+                cited_labels=sorted({c.label for c in answer.citations}),
+                latency_s=latency,
+            )
         )
-        / len(answerable),
+
+    scored = [r for r in records if r.answerable]
+    wrongly_answered = [r.question for r in records if not r.answerable and not r.refused]
+    latencies = [r.latency_s for r in records if r.latency_s is not None]
+    return AnswerResult(
+        model=model,
+        prompt=prompt.name,
+        answered=sum(not r.refused for r in scored) / len(scored),
+        cited_any=sum(bool(r.cited_labels) for r in scored) / len(scored),
+        cited_relevant=sum(bool(r.correct_citation) for r in scored) / len(scored),
         unanswerable_refused=1 - len(wrongly_answered) / len(unanswerable),
-        wrongly_refused=[a.question for a in answers if a.refused],
+        p95_latency_s=float(np.percentile(latencies, P95)) if latencies else 0.0,
+        failures=dict(Counter(r.failure for r in scored if r.failure)),
+        wrongly_refused=[r.question for r in scored if r.refused],
         wrongly_answered=wrongly_answered,
+        records=records,
     )
 
 

@@ -276,28 +276,55 @@ def test_eval_prints_the_scores_and_the_mistakes() -> None:
 
 
 @pytest.mark.usefixtures("fake_evaluation")
-def test_eval_answers_reports_the_model(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        ev,
-        "evaluate_answers",
-        lambda *args: ev.AnswerResult(
+def test_eval_answers_uses_the_chosen_model_and_prompt_and_saves(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = []
+
+    def fake_answers(strategy, questions, off_topic, model, prompt) -> ev.AnswerResult:
+        calls.append((model, prompt.name))
+        return ev.AnswerResult(
+            model=model,
+            prompt=prompt.name,
             answered=0.8,
             cited_any=0.7,
             cited_relevant=0.6,
             unanswerable_refused=0.5,
+            p95_latency_s=12.5,
+            failures={"format_error": 2},
             wrongly_refused=["Declined?"],
             wrongly_answered=["Invented?"],
-        ),
+            records=[],
+        )
+
+    monkeypatch.setattr(ev, "evaluate_answers", fake_answers)
+    saved = tmp_path / "runs" / "result.json"
+
+    result = runner.invoke(
+        app,
+        ["eval", "--answers", "--model", "qwen3:8b", "--prompt", "numbered", "--save", str(saved)],
     )
 
-    result = runner.invoke(app, ["eval", "--answers"])
-
     assert result.exit_code == 0, result.stderr
+    assert calls == [("qwen3:8b", "numbered")]
+    assert "Model answers (qwen3:8b, prompt 'numbered')" in result.stdout
     assert "answered: 80%" in result.stdout
     assert "with a valid citation: 70%" in result.stdout
     assert "with the expected text: 60%" in result.stdout
+    assert "wrong refusals: 1" in result.stdout
+    assert "p95 latency: 12.5s" in result.stdout
+    assert "format_error" in result.stdout
     assert "Model refused, but answerable: Declined?" in result.stdout
     assert "Model answered, but unanswerable: Invented?" in result.stdout
+    assert ev.AnswerResult.model_validate_json(saved.read_text()).model == "qwen3:8b"
+
+
+@pytest.mark.usefixtures("fake_evaluation")
+def test_eval_rejects_an_unknown_prompt_cleanly() -> None:
+    result = runner.invoke(app, ["eval", "--answers", "--prompt", "magic"])
+
+    assert result.exit_code == 1
+    assert "Unknown prompt 'magic'" in result.stderr
 
 
 def test_eval_labels_the_tuning_set(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -63,6 +63,8 @@ class Settings(BaseSettings):
     # LLM
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.2"
+    # A file name in src/fine_print/prompts/, without its extension.
+    prompt_name: str = "baseline"
     ollama_connect_timeout: float = Field(default=5.0, gt=0)
     ollama_read_timeout: float = Field(default=180.0, gt=0)
     ollama_max_attempts: int = Field(default=3, gt=0)

@@ -1,6 +1,7 @@
 """The `fine-print` command line."""
 
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Annotated, Literal, NoReturn
 
 import numpy as np
@@ -177,10 +178,20 @@ def evaluate(
             "For a frozen configuration: never tune anything from this.",
         ),
     ] = False,
+    model: Annotated[
+        str | None, typer.Option(help="The Ollama model for --answers. Defaults to the settings.")
+    ] = None,
+    prompt: Annotated[
+        str | None, typer.Option(help="The prompt variant for --answers. Defaults to the settings.")
+    ] = None,
+    save: Annotated[
+        Path | None, typer.Option(help="Write every question's result from --answers to this file.")
+    ] = None,
 ) -> None:
     """Measure retrieval quality for each chunking strategy."""
     # Imported here because these load torch and Chroma, which most commands don't need.
     from fine_print import evaluate as ev  # noqa: PLC0415
+    from fine_print.prompts import load_prompt  # noqa: PLC0415
     from fine_print.rag import OllamaError  # noqa: PLC0415
     from fine_print.store import IndexNotBuiltError  # noqa: PLC0415
 
@@ -196,11 +207,22 @@ def evaluate(
         results = [ev.evaluate_strategy(strategy, questions) for strategy in strategies]
         threshold = ev.evaluate_threshold(settings.default_strategy, questions, off_topic)
         answer_result = (
-            ev.evaluate_answers(settings.default_strategy, questions, off_topic)
+            ev.evaluate_answers(
+                settings.default_strategy,
+                questions,
+                off_topic,
+                model,
+                load_prompt(prompt or settings.prompt_name),
+            )
             if answers
             else None
         )
-    except (FileNotFoundError, ValidationError, IndexNotBuiltError, OllamaError) as error:
+    except (
+        FileNotFoundError,
+        ValueError,
+        IndexNotBuiltError,
+        OllamaError,
+    ) as error:
         _fail(str(error))
 
     typer.echo(f"Evaluated {len(questions)} questions\n\n{ev.format_table(results)}")
@@ -220,16 +242,23 @@ def evaluate(
 
     if answer_result:
         typer.echo(
-            f"\nModel answers ({settings.ollama_model}):\n"
+            f"\nModel answers ({answer_result.model}, prompt '{answer_result.prompt}'):\n"
             f"  answered: {answer_result.answered:.0%} of answerable questions\n"
             f"  with a valid citation: {answer_result.cited_any:.0%}\n"
             f"  citing a passage with the expected text: {answer_result.cited_relevant:.0%}\n"
-            f"  refused: {answer_result.unanswerable_refused:.0%} of unanswerable questions"
+            f"  refused: {answer_result.unanswerable_refused:.0%} of unanswerable questions\n"
+            f"  wrong refusals: {len(answer_result.wrongly_refused)}\n"
+            f"  p95 latency: {answer_result.p95_latency_s:.1f}s\n"
+            f"  failures: {answer_result.failures}"
         )
         for question in answer_result.wrongly_refused:
             typer.echo(f"Model refused, but answerable: {question}")
         for question in answer_result.wrongly_answered:
             typer.echo(f"Model answered, but unanswerable: {question}")
+        if save:
+            save.parent.mkdir(parents=True, exist_ok=True)
+            save.write_text(answer_result.model_dump_json(indent=1) + "\n", encoding="utf-8")
+            typer.echo(f"Results saved to {save}")
 
 
 @app.command()
