@@ -13,16 +13,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 fine-print is a local, citation-first RAG system over the Terms of Service and privacy policies of popular apps. It runs entirely on the user's machine (sentence-transformers, Chroma, Ollama) with no API keys, and it is built from individual parts rather than LangChain or LlamaIndex so that every step stays visible.
 
-## Status: v2 rebuild in progress
+## Status: v3 answer quality
 
-The `v2-rebuild` branch replaces the v1 prototype, which is kept at the `v1-simple` tag.
+v2 replaced the v1 prototype, which is kept at the `v1-simple` tag. v3 compared models and prompts on the tuning set.
 
 - **Done:** every stage: download, ingest, chunk, index, RAG, eval, benchmark, API and UI.
+- **Defaults:** `gemma4:e4b` with the `numbered` prompt, picked by correct-citation rate with p95 latency as the tie-breaker. Results are saved in `eval/runs/`.
 - **Undecided:** `default_strategy` stays `section` while the fair chunking comparison is reviewed (see the README's results).
 
 ## Evaluation data
 
 **Never tune parameters against `eval/holdout/`.** That means thresholds, chunk sizes, the default strategy, prompts and the model, and it applies to editing questions after seeing their scores too. Tune on `eval/questions.jsonl` and `eval/out_of_scope.jsonl`. Run `make eval-holdout` only to report on a frozen configuration, and don't change anything because of what it shows. Once a held-out result has influenced a change, the set is spent and needs replacing.
+
+**`eval/holdout/` is now spent.** It was scored for v2 and for v3, and its weak v2 answer score helped prompt the v3 work. Build a new set before reporting another held-out number.
+
+`eval/review/v3_finalists.md` has no marks: the reply review reported in the README was done by Claude, not an independent human. Don't describe it as human or independent.
 
 ## Commands
 
@@ -40,7 +45,7 @@ uv run fine-print ingest                 # parse and chunk data/raw/, and report
 uv run pre-commit install                # enable the git hooks
 ```
 
-`make index`, `eval`, `compare`, `bench`, `api` and `app` run the later stages. `make eval-holdout` is for reporting only (see Evaluation data). `make app` needs `make api` running, and answering needs Ollama. `uv run fine-print eval --answers` also measures the real model, which takes about a minute.
+`make index`, `eval`, `compare`, `compare-answers`, `bench`, `api` and `app` run the later stages. `make eval-holdout` is for reporting only (see Evaluation data). `make app` needs `make api` running, and answering needs Ollama. `uv run fine-print eval --answers` also measures the real model, which takes about 3 minutes. Stop the API, UI and other heavy processes before any run whose latency you'll report.
 
 Tests need no model, Ollama or `data/raw/`: Ollama and the API are mocked with `respx`, the embedding model is faked, and Chroma runs for real in a temporary folder. Because mocks can't show how the real model behaves, also run real questions after changing `rag.py`.
 
@@ -53,6 +58,8 @@ The pipeline: policy files → `Document` (text normalized to Markdown with `#` 
 - **Lazy imports.** `cli.py` imports the embedding, store and benchmark modules inside its commands, because torch makes them slow to load. Don't move them to the top of the file.
 - **Tuned from `make eval`.** `min_similarity` is 0.6 because answerable questions score above 0.69 and off-topic ones below 0.55. Questions that name a company score as high as real ones, so only the model can refuse those. Re-measure if the corpus or embedding model changes.
 - **Reply cap.** `ollama_num_predict` exists because `llama3.2` can repeat itself until the read timeout. Keep it below `RESERVED_TOKENS` in `rag.py`.
+- **Prompts.** Prompts are TOML files in `src/fine_print/prompts/`, each with a `citation_style`. With `numbered`, only `[1]`-style replies count as citations, and they're rewritten as labels. A test that uses label-style replies must pass `prompt=load_prompt("baseline")`.
+- **Model memory.** `/api/ps` reports 0.26 GB for `gemma4:e4b`, so `compare_answers.py` measures Ollama's process memory instead.
 
 - **Headings.** The raw files mix ATX, setext, bold-only lines and escaped numbering (`1\. Title`). `normalize_headings` rewrites them all as `#` lines, and `chunking.py` relies only on those. Title Case detection applies to plain text and PDFs only, because in Markdown it picks up navigation links.
 - **Chunk windows.** Spans break at whitespace, so consecutive chunks share between `overlap` and `2 * overlap` characters rather than exactly `overlap`. `section` chunks hold body text only and never cross a section; `fixed` chunks can, and take the title of the section contributing the most characters.
@@ -89,3 +96,9 @@ All settings live in `Settings` in `src/fine_print/config.py`, overridable with 
 - Use `respx` to mock httpx calls such as Ollama in tests.
 - Linux resolves torch from the CPU-only PyTorch index (`tool.uv.sources`), so CI and Docker images avoid the CUDA libraries.
 - v1 ran Streamlit with `--server.fileWatcherType none` because the file watcher trips over torch internals on reload.
+
+## v4 backlog
+
+- **Fix keyword scoring.** Handle stemming and inflections, include section titles, and require an actual answer rather than just a matching passage. Build a fresh held-out set for it.
+- **Retrieval misses.** Q15 (the chunk is cut off) and Q19 (the clause isn't retrieved) are candidates for parent-child chunking and for hybrid BM25 + vector search with reranking.
+- **External pages.** Prompt the model to mention external pages the terms point to, such as Lyft's Help Center.
