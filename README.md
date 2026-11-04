@@ -11,10 +11,10 @@ The corpus is 20 documents from 10 companies: Coursera, Discord, Lyft, Netflix, 
 You need [uv](https://docs.astral.sh/uv/getting-started/installation/), `make` and [Ollama](https://ollama.com/). uv installs the right Python version for you.
 
 ```bash
-ollama pull llama3.2   # the local model, about 2 GB
-make setup             # create .venv from uv.lock
-make data              # download the policy documents into data/raw/
-make index             # build the vector index; the first run downloads the embedding model
+ollama pull gemma4:e4b   # the local model, a 6.6 GB download that needs 6-7 GB of memory
+make setup               # create .venv from uv.lock
+make data                # download the policy documents into data/raw/
+make index               # build the vector index; the first run downloads the embedding model
 ```
 
 Then ask from the command line:

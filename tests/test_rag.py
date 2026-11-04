@@ -293,12 +293,23 @@ def test_answer_reports_citations_and_everything_retrieved(
 ) -> None:
     respx.post(CHAT_URL).mock(return_value=reply("It is $5 [Acme – Fees]."))
 
-    answer = rag.answer_question("Any fee?")
+    answer = rag.answer_question("Any fee?", prompt=load_prompt("baseline"))
 
     assert answer.text == "It is $5 [Acme – Fees]."
     assert [c.label for c in answer.citations] == ["[Acme – Fees]"]
     assert answer.retrieved == retrieved
     assert answer.refused is False
+
+
+@respx.mock
+@pytest.mark.usefixtures("retrieved")
+def test_default_prompt_turns_cited_numbers_into_labels() -> None:
+    respx.post(CHAT_URL).mock(return_value=reply("It is $5 [1]."))
+
+    answer = rag.answer_question("Any fee?")
+
+    assert answer.text == "It is $5 [Acme – Fees]."
+    assert [c.label for c in answer.citations] == ["[Acme – Fees]"]
     assert answer.refusal_reason is None
 
 
@@ -377,7 +388,7 @@ def test_cited_answer_that_also_mentions_not_found_is_kept() -> None:
     text = "It is $5 [Acme – Fees]. Refunds: not found in the documents."
     respx.post(CHAT_URL).mock(return_value=reply(text))
 
-    answer = rag.answer_question("Fees and refunds?")
+    answer = rag.answer_question("Fees and refunds?", prompt=load_prompt("baseline"))
 
     assert answer.text == text
     assert answer.refused is False
