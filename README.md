@@ -1,10 +1,43 @@
 # fine-print
 
-Ask plain-English questions about the Terms of Service and privacy policies of popular apps, and get answers drawn only from the policy text, with a citation for each claim. It runs entirely on your own machine, with no API keys and no cost.
+Ask plain-English questions about the Terms of Service and privacy policies of 10 popular apps, and get answers drawn only from the policy text, with a citation for each claim. It runs entirely on your own machine, with no API keys and no cost, and it measures itself, including where it falls short.
 
-It's built from the individual parts, without LangChain or LlamaIndex, so every step is visible: parsing, chunking, embedding, vector search and prompting. It also measures itself, including where it falls short.
+It's built from the individual parts, without LangChain or LlamaIndex, so every step is visible: parsing, chunking, embedding, vector search and prompting. The corpus is 20 documents from Coursera, Discord, Lyft, Netflix, PayPal, Pinterest, Reddit, Spotify, Strava and Zoom. Answers can be wrong and aren't legal advice, so check the cited text.
 
-The corpus is 20 documents from 10 companies: Coursera, Discord, Lyft, Netflix, PayPal, Pinterest, Reddit, Spotify, Strava and Zoom. Answers can be wrong and aren't legal advice, so check the cited text.
+![The fine-print web UI answering a question about Lyft's no-show fee, with the cited policy passage open below the answer](docs/screenshot.png)
+
+## Results at a glance
+
+| Held-out set: 20 answerable and 10 unanswerable questions | v1: prototype | v2: real corpus | v3: better model and prompt |
+| --- | --- | --- | --- |
+| Recall@5 | not measured | 85% | 85% |
+| Correct citation | not measured | 45% | **85%** |
+| Refusal accuracy: answered or refused correctly | not measured | 80% (24 of 30) | **93%** (28 of 30) |
+| p95 latency when the model is called | not measured | not measured (10.3s on the tuning set) | 10.5s (8.4s on the tuning set) |
+
+v1 ran only on two fictional documents, with no held-out set. The v3 gain is real but isn't a clean estimate: the set is small, and its weak v2 score helped prompt the v3 work. See [Results](#results) for the details.
+
+## Key findings
+
+- **Generation, not retrieval, was the bottleneck.** In v2 the expected passage was in the top 5 for 85% of held-out questions, but only 45% got a correct citation. v3 changed only the model and prompt, retrieval stayed the same, and correct citation reached 85%. That now matches Recall@5, so retrieval and the scorer are the next limits.
+- **The automated scorer agreed with a review of the replies on 41 of 46.** It failed 4 good answers and passed 1 reply that never answered the question, so it's useful but not the whole truth. Claude did this review, not an independent human.
+- **HNSW only pays off past about 10,000 vectors.** At this corpus's 1,581 vectors it's no faster than exact search. It pulls ahead at about 10,000 in a scaling test on synthetic vectors, so that's a trend rather than a promise.
+
+## Limitations
+
+- **Measured on small, self-written sets.** One author wrote both question sets, and one held-out question moves a score by 5 points. The held-out set has now been scored twice, and its v2 score helped prompt v3, so it's no longer clean.
+- **No independent review.** Claude read the replies, not a human, and Claude also wrote the questions and prompts.
+- **Local model.** `gemma4:e4b` needs 6-7 GB of memory. Answers can also be incomplete: on whether Lyft sells data, it leaves out a qualifier that matters.
+- **Paraphrased refusals.** A reply such as "The provided documents do not specify..." isn't recognized as a refusal, so it counts as answered and isn't marked as a refusal in the UI or API.
+- **Keyword relevance.** The evaluation can't see whether a passage really answers a question, and it misses inflections and section titles.
+- **Passages that stop short.** Fixed size limits can cut a clause, as with Reddit's licence terms, and some clauses aren't retrieved at all, such as Zoom's right to discontinue a service.
+- **Unverified citations.** Nothing checks that a cited passage supports the claim.
+
+## v4 backlog
+
+- **Fix the keyword scoring.** Handle inflections and section titles, require an actual answer rather than just a matching passage, and build a fresh held-out set.
+- **Reduce retrieval misses.** Parent-child chunking and hybrid BM25 + vector search with reranking are candidates, for clauses that get cut off or aren't retrieved.
+- **Point to external pages.** Prompt the model to mention pages the terms refer to, such as Lyft's Help Center.
 
 ## Quickstart
 
@@ -214,21 +247,25 @@ HNSW starts to matter as the corpus grows, because exact search slows in proport
 
 Only the first row is the real corpus. The larger ones are synthetic, made by resampling our vectors with a little noise, with 200 more made the same way as queries, on one search thread. That data is clustered around real vectors and may be easier than a genuinely larger corpus, so read them as the trend and not as a promise. HNSW overtakes exact search by about 10,000 vectors, roughly 6 times this corpus, or around 60 companies at the current size. Even at 500,000 vectors exact search takes just 16 ms, so for one local user the speed only clearly matters at millions of vectors, or under many simultaneous queries.
 
-## Limitations
+## Privacy
 
-- **Local model.** `gemma4:e4b` needs 6-7 GB of memory. Local models can also give incomplete answers: on Q10 above it leaves out a qualifier that matters.
-- **Paraphrased refusals.** A reply such as "The provided documents do not specify..." isn't recognized as a refusal, so it counts as answered and isn't marked as a refusal in the UI or API.
-- **Keyword relevance.** The evaluation can't see whether a passage really answers a question, and it misses inflections and section titles.
-- **Passages that stop short.** Fixed size limits can cut a clause, as on Reddit's licence terms (Q15), and some clauses aren't retrieved at all (Q19).
-- **Unverified citations.** Nothing checks that a cited passage supports the claim.
+Everything runs locally. Chroma's telemetry is off, `make app` turns off Streamlit's, and both services listen only on localhost. The embedding model is downloaded from Hugging Face on first use; once it's cached, it loads without contacting them.
+
+## Data attribution
+
+Policy text comes from two open archives, both under the [ODC Attribution License](https://opendatacommons.org/licenses/by/):
+
+- [Open Terms Archive](https://opentermsarchive.org/), through [`contrib-versions`](https://github.com/OpenTermsArchive/contrib-versions): 18 documents.
+- [ToS;DR](https://tosdr.org/), through [`tosdr-versions`](https://github.com/tosdr/tosdr-versions): 2 documents, Strava's terms and privacy policy.
+
+The policies themselves belong to their companies. `make data` downloads the full documents, which aren't stored in this repo, though excerpts appear in the screenshot, `eval/review/` and `eval/runs/`. This project isn't affiliated with any of these companies or archives.
+
+Notes on the corpus:
+
 - **Replaced services.** The source archives have no usable documents for Uber and Duolingo, and no real privacy policy for Airbnb, so Lyft, Coursera and PayPal are in the corpus instead.
 - **Older Strava text.** Strava comes from a 2024-07-15 snapshot, while the others are current to the download.
 - **Page furniture.** Strava's documents and Zoom's terms begin with site navigation text, which ingestion doesn't remove from Markdown files.
 - **Repeated text.** Reddit's terms contain two regional versions of the agreement, so results can show near-identical passages.
-
-## Privacy
-
-Everything runs locally. Chroma's telemetry is off, `make app` turns off Streamlit's, and both services listen only on localhost. The embedding model is downloaded from Hugging Face on first use; once it's cached, it loads without contacting them.
 
 ## Stack
 

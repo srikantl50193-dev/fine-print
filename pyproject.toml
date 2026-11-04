@@ -1,6 +1,6 @@
 [project]
 name = "fine-print"
-version = "0.2.0"
+version = "3.0.0"
 description = "Local, citation-first RAG over the Terms of Service and privacy policies of popular apps."
 readme = "README.md"
 requires-python = ">=3.14,<3.15"
