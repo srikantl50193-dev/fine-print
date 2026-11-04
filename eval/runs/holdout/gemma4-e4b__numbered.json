@@ -1,0 +1,415 @@
+{
+ "model": "gemma4:e4b",
+ "prompt": "numbered",
+ "answered": 0.9,
+ "cited_any": 0.85,
+ "cited_relevant": 0.85,
+ "unanswerable_refused": 1.0,
+ "p95_latency_s": 10.472853308729814,
+ "failures": {
+  "not_retrieved": 3
+ },
+ "wrongly_refused": [
+  "Does Spotify keep recordings when I talk to the app?",
+  "Does PayPal scan people's faces?"
+ ],
+ "wrongly_answered": [],
+ "records": [
+  {
+   "question": "Does Spotify keep recordings when I talk to the app?",
+   "answerable": true,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "model_declined",
+   "cited_labels": [],
+   "relevant_shown": false,
+   "correct_citation": false,
+   "failure": "not_retrieved",
+   "latency_s": 11.820947958854958
+  },
+  {
+   "question": "Can Spotify pull songs from the catalog without warning me?",
+   "answerable": true,
+   "text": "Yes, Spotify or the applicable owners may remove access to specific songs, videos, podcasts, audiobooks, and other Content without notice [Spotify – Service limitations and modifications].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Spotify – Service limitations and modifications]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 4.141285374993458
+  },
+  {
+   "question": "Is Netflix allowed to raise what I pay each month?",
+   "answerable": true,
+   "text": "The provided documents do not state whether Netflix is allowed to raise the monthly subscription fee.",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [],
+   "relevant_shown": false,
+   "correct_citation": false,
+   "failure": "not_retrieved",
+   "latency_s": 3.978124667191878
+  },
+  {
+   "question": "Does Netflix save what I say to its voice search?",
+   "answerable": true,
+   "text": "Yes, Netflix collects voice inputs, which includes transcripts and recordings, when you use voice-related features [Netflix – The Categories of Personal Information We Collect].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Netflix – The Categories of Personal Information We Collect]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 3.6914189578965306
+  },
+  {
+   "question": "Who pays if I wreck the inside of a Lyft driver's car?",
+   "answerable": true,
+   "text": "If a Driver reports that you have materially damaged their vehicle, you agree to pay a \"Damage Fee\" of up to $250, depending on the extent of the damage, towards vehicle repair or cleaning [Lyft – Charges].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Lyft – Charges]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 4.827326624887064
+  },
+  {
+   "question": "What ID might Lyft ask me to upload to prove who I am?",
+   "answerable": true,
+   "text": "Lyft may ask for documents related to identification, such as a driver's license, a profile picture, or \"selfie\" imagery [Lyft – A. Information You Provide to Us]. If you apply to be a Driver, Lyft will collect information like government identification number (such as social security number) and driver's license information [Lyft – A. Information You Provide to Us].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Lyft – A. Information You Provide to Us]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 5.851273792097345
+  },
+  {
+   "question": "Am I able to quit Discord whenever I like?",
+   "answerable": true,
+   "text": "Yes, you are free to stop using Discord's services at any time and for any reason [Discord – Term & Termination]. To end the agreement, you can delete your Discord account through the Settings page in the Discord app [Discord – Term & Termination].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Discord – Term & Termination]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 5.209309292025864
+  },
+  {
+   "question": "Could my information be handed over if Discord gets bought by another company?",
+   "answerable": true,
+   "text": "Yes, Discord may disclose information if it is evaluating or engaging in a merger, acquisition, reorganization, bankruptcy, or sale, transfer, or change in ownership of Discord or any of its assets [Discord – How we disclose your information].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Discord – How we disclose your information]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 4.443717707879841
+  },
+  {
+   "question": "What can I do if somebody posts my copyrighted work on Reddit?",
+   "answerable": true,
+   "text": "If you believe something on Reddit infringes a copyright or a trademark that you own or control, you can notify Reddit's Designated Agent by using the [Copyright Report Form](https://support.reddithelp.com/hc/en-us/requests/new?ticket_form_id=16510899084308&tf_16510589022228=contact_form_copyright_infringement_dmca) or the [Trademark Report Form](https://support.reddithelp.com/hc/en-us/requests/new?ticket_form_id=16510899084308&tf_16510589022228=contact_form_trademark_request), or by contacting the Copyright Agent at Reddit, Inc. [Reddit – 9. Copyright, Trademark, the DMCA, and Takedowns].\n\nYou can also contact the Copyright Agent at:\nReddit, Inc.\n303 2nd Street, Suite 500S\nSan Francisco, CA 94107\ncopyright@reddit.com [Reddit – 9. Copyright, Trademark, the DMCA, and Takedowns]",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Reddit – 9. Copyright, Trademark, the DMCA, and Takedowns]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 11.369227333925664
+  },
+  {
+   "question": "Does Reddit know exactly where I am?",
+   "answerable": true,
+   "text": "Reddit does not track your precise location [Reddit – Introduction]. However, they automatically collect information about your approximate location based on their Logs Data [Reddit – What Information We Collect]. Location information may also be received from you if you choose to share it through the Location Customization setting or by associating your content with a location [Reddit – What Information We Collect].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Reddit – Introduction]",
+    "[Reddit – What Information We Collect]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 6.887357207946479
+  },
+  {
+   "question": "If I drop my Zoom plan early, do I get money back for the rest of the term?",
+   "answerable": true,
+   "text": "If you have a right of withdrawal or a cooling-off period under applicable Law, you may request to terminate the affected Services according to applicable Law and, if applicable, receive a pro rata refund of any prepaid and unused Charges [Zoom – 12. PAYMENTS AND CHARGES]. However, all payments are final and non-refundable unless Zoom agrees otherwise, it is required by Law, or it is stated in your Order Form [Zoom – 12. PAYMENTS AND CHARGES].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Zoom – 12. PAYMENTS AND CHARGES]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 6.2919052499346435
+  },
+  {
+   "question": "Can a 14 year old create a Zoom account?",
+   "answerable": true,
+   "text": "Zoom does not allow children under the age of 16 to sign up for a Zoom account [Zoom – Children]. Additionally, Zoom is not intended for use by individuals under the age of sixteen (16) years old, unless it is through a School Subscriber using Zoom for Education (K-12) [Zoom – 11. ELIGIBILITY; RESTRICTION ON USE BY CHILDREN].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Zoom – 11. ELIGIBILITY; RESTRICTION ON USE BY CHILDREN]",
+    "[Zoom – Children]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 4.832320041023195
+  },
+  {
+   "question": "Could Coursera move or call off a course I'm taking?",
+   "answerable": true,
+   "text": "Coursera reserves the right to cancel, interrupt, reschedule, or modify any Content Offerings [Coursera – Changes to Content Offerings].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Coursera – Changes to Content Offerings]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 3.2312962911091745
+  },
+  {
+   "question": "Can Coursera get details about me from where I work?",
+   "answerable": true,
+   "text": "Coursera may receive personal information from your employer to support your access to the App and your participation in OpenAI courses [Coursera – Personal information Coursera processes and why].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Coursera – Personal information Coursera processes and why]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 3.663342417217791
+  },
+  {
+   "question": "What happens to the money left in my PayPal balance when my account is shut?",
+   "answerable": true,
+   "text": "After your account is closed, PayPal may retain your electronic money for a period and to the extent reasonably required to protect PayPal and/or any third party against risks such as reversals, fees, fines, penalties, and other liabilities [Paypal – Closing Your PayPal Account]. After this time, you will be able to withdraw any undisputed funds that PayPal is holding [Paypal – Closing Your PayPal Account].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Paypal – Closing Your PayPal Account]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 5.630484708119184
+  },
+  {
+   "question": "Does PayPal scan people's faces?",
+   "answerable": true,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "model_declined",
+   "cited_labels": [],
+   "relevant_shown": false,
+   "correct_citation": false,
+   "failure": "not_retrieved",
+   "latency_s": 3.910990583943203
+  },
+  {
+   "question": "Who's responsible if I get hurt on a route I found through Strava?",
+   "answerable": true,
+   "text": "You voluntarily assume all known and unknown risks associated with your athletic activities, including cycling or running, even if those risks are caused by the action, inaction, or negligence of Strava or others [Strava – Disclaimer of Warranties and Liability]. You also agree to release Strava and other specified parties from any and all liability related to your athletic activities and/or use of the Strava services [Strava – Disclaimer of Warranties and Liability].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Strava – Disclaimer of Warranties and Liability]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 5.6400820831768215
+  },
+  {
+   "question": "Can Strava work out things about my health from my workouts?",
+   "answerable": true,
+   "text": "Strava may collect or infer health information, and certain health information can be inferred from sources like heart rate, power, cadence, and weight or other indicators [Strava – Health Information].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Strava – Health Information]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 4.155312624992803
+  },
+  {
+   "question": "Can a 15 year old use Pinterest?",
+   "answerable": true,
+   "text": "If you are between 13 and 18, you can only use the Service with the permission of your parent or legal guardian [Pinterest – a. Who can use Pinterest].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Pinterest – a. Who can use Pinterest]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 4.647838958073407
+  },
+  {
+   "question": "How do I erase everything Pinterest has on me?",
+   "answerable": true,
+   "text": "You can have your information deleted by selecting “Delete your data and account” in your settings and following the instructions [Pinterest – Your Rights and Choices].",
+   "refused": false,
+   "refusal_reason": null,
+   "cited_labels": [
+    "[Pinterest – Your Rights and Choices]"
+   ],
+   "relevant_shown": true,
+   "correct_citation": true,
+   "failure": null,
+   "latency_s": 4.642941332887858
+  },
+  {
+   "question": "How tall is Mount Everest?",
+   "answerable": false,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "low_similarity",
+   "cited_labels": [],
+   "relevant_shown": null,
+   "correct_citation": null,
+   "failure": null,
+   "latency_s": null
+  },
+  {
+   "question": "What's a good recipe for vegetable soup?",
+   "answerable": false,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "low_similarity",
+   "cited_labels": [],
+   "relevant_shown": null,
+   "correct_citation": null,
+   "failure": null,
+   "latency_s": null
+  },
+  {
+   "question": "Which planet is closest to the sun?",
+   "answerable": false,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "low_similarity",
+   "cited_labels": [],
+   "relevant_shown": null,
+   "correct_citation": null,
+   "failure": null,
+   "latency_s": null
+  },
+  {
+   "question": "How do I repair a flat bicycle tire?",
+   "answerable": false,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "low_similarity",
+   "cited_labels": [],
+   "relevant_shown": null,
+   "correct_citation": null,
+   "failure": null,
+   "latency_s": null
+  },
+  {
+   "question": "What is Strava's annual revenue?",
+   "answerable": false,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "model_declined",
+   "cited_labels": [],
+   "relevant_shown": null,
+   "correct_citation": null,
+   "failure": null,
+   "latency_s": 3.4386565419845283
+  },
+  {
+   "question": "How many people work in Pinterest's San Francisco office?",
+   "answerable": false,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "model_declined",
+   "cited_labels": [],
+   "relevant_shown": null,
+   "correct_citation": null,
+   "failure": null,
+   "latency_s": 3.45592970889993
+  },
+  {
+   "question": "Which bank does Coursera use for its corporate accounts?",
+   "answerable": false,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "model_declined",
+   "cited_labels": [],
+   "relevant_shown": null,
+   "correct_citation": null,
+   "failure": null,
+   "latency_s": 3.035517292097211
+  },
+  {
+   "question": "What operating system do Discord's servers run on?",
+   "answerable": false,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "model_declined",
+   "cited_labels": [],
+   "relevant_shown": null,
+   "correct_citation": null,
+   "failure": null,
+   "latency_s": 4.155421582981944
+  },
+  {
+   "question": "Which Netflix show has the most episodes?",
+   "answerable": false,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "low_similarity",
+   "cited_labels": [],
+   "relevant_shown": null,
+   "correct_citation": null,
+   "failure": null,
+   "latency_s": null
+  },
+  {
+   "question": "What color is the Lyft logo?",
+   "answerable": false,
+   "text": "Not found in the documents",
+   "refused": true,
+   "refusal_reason": "model_declined",
+   "cited_labels": [],
+   "relevant_shown": null,
+   "correct_citation": null,
+   "failure": null,
+   "latency_s": 3.4923884158488363
+  }
+ ]
+}
