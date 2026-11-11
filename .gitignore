@@ -10,3 +10,16 @@ coverage.xml
 data/external/
 data/raw/
 chroma_db/
+# Indexes built by scripts/compare_embedding_models.py, one per model.
+chroma_experiment/
+# Secrets and local configuration. Commit a template as .env.example if one is ever needed.
+.env.*
+!.env.example
+# Logs, notebooks and editor folders.
+*.log
+.ipynb_checkpoints/
+.idea/
+.vscode/
+# Model weights and indexes, wherever they end up.
+*.safetensors
+*.gguf
