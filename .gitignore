@@ -10,3 +10,15 @@ coverage.xml
 data/external/
 data/raw/
 chroma_db/
+# Secrets and local configuration. Commit a template as .env.example if one is ever needed.
+.env.*
+!.env.example
+# Logs, notebooks and editor folders.
+*.log
+.ipynb_checkpoints/
+.idea/
+.vscode/
+# Model weights and other vector indexes.
+*.safetensors
+*.gguf
+chroma*/
