@@ -228,6 +228,8 @@ Run on the 1,581 `section` vectors, using the 31 tuning questions as queries, on
 | HNSW | 100 | 1.000 | 0.0514 | 144.96 |
 | HNSW | 200 | 1.000 | 0.1045 | 144.96 |
 
+HNSW recall depends on the FAISS version, because releases change how the graph is built, so `faiss-cpu` is pinned below 1.16 to keep this table reproducible. Measured on the same vectors and queries, FAISS 1.15.1 reproduces the recall column above, while 1.16.0 gives 0.935, 0.974, 0.994, 0.997 and 0.997 at efSearch 10, 20, 50, 100 and 200: one neighbour in 310 is never found, even at efSearch 200. Fine Print answers questions through Chroma's own HNSW index, not FAISS, so this affects only the benchmark.
+
 ![Recall against query latency for each efSearch value, with flat search reaching full recall at about the same latency as HNSW at efSearch 100](docs/benchmark.png)
 
 ## Design decisions
