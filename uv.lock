@@ -571,7 +571,7 @@ dev = [
 requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.15.0" },
     { name = "chromadb", specifier = ">=1.5.9" },
-    { name = "faiss-cpu", specifier = ">=1.15.1" },
+    { name = "faiss-cpu", specifier = ">=1.15.1,<1.16" },
     { name = "fastapi", specifier = ">=0.162.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "matplotlib", specifier = ">=3.11.2" },
